@@ -370,7 +370,9 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
                 dirpath=checkpoint_dir,
                 monitor="val_metric",
                 filename="{epoch:03d}-{val_metric:.4f}",
-                save_last=True,
+                # FinalCheckpointCallback owns last.ckpt and updates it every epoch.
+                # Enabling Lightning's copy as well creates last-v1.ckpt.
+                save_last=False,
                 save_weights_only=save_weights_only,
                 mode=cfg.val_track,
                 save_top_k=cfg.get("save_top_k", 1) or 1,
