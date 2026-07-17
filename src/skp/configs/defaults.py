@@ -10,6 +10,8 @@ CONFIG_FIELD_DOCS = {
         "float32_matmul_precision": "Value passed to torch.set_float32_matmul_precision.",
         "save_top_k": "Number of best checkpoints to keep according to val_metric.",
         "save_weights_only": "If True, checkpoint only model weights instead of full training state.",
+        "save_console_log": "Mirror rank-zero stdout and stderr into each split's experiment folder.",
+        "console_log_filename": "Filename for the console log stored beside the checkpoints directory.",
         "early_stopping": "Enable Lightning early stopping on val_metric.",
         "mlflow_system_monitor": "Use MLflow system metrics as the default hardware/process monitor.",
         "log_gpu_stats": "Opt-in Lightning GPU stats logging; usually redundant with MLflow system metrics.",
@@ -88,6 +90,8 @@ def runtime_defaults(cfg: Config) -> Config:
     cfg.float32_matmul_precision = "high"
     cfg.save_top_k = 1
     cfg.save_weights_only = False
+    cfg.save_console_log = True
+    cfg.console_log_filename = "training.log"
     cfg.early_stopping = False
     cfg.early_stopping_patience = 5
     cfg.early_stopping_min_delta = 0.0

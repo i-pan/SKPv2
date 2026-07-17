@@ -26,6 +26,7 @@ from typing import Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
 from skp.callbacks import (
+    ConsoleLogCallback,
     EMACallback,
     FinalCheckpointCallback,
     GPUStatsLogger,
@@ -331,6 +332,15 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
     save_dir = os.path.join(cfg.save_dir, get_split_save_name(cfg))
     create_save_dirs(save_dir, overwrite=cfg.overwrite_run)
     callbacks = []
+    if cfg.get("save_console_log", True):
+        callbacks.append(
+            ConsoleLogCallback(
+                os.path.join(
+                    save_dir,
+                    cfg.get("console_log_filename", "training.log") or "training.log",
+                )
+            )
+        )
     if cfg.get("ema") and cfg.ema["on"]:
         _print_rank_zero("\n>> Using EMA ...\n")
         callbacks.append(
