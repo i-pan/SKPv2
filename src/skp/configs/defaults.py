@@ -5,7 +5,7 @@ CONFIG_FIELD_DOCS = {
     "runtime": {
         "save_dir": "Root directory for experiment outputs before config/run/fold subdirectories are appended.",
         "project": "Required MLflow experiment name. Set explicitly in each experiment config.",
-        "mlflow_tracking_uri": "Optional MLflow tracking URI. If None, MLflow uses its environment/default behavior.",
+        "mlflow_tracking_uri": "MLflow tracking URI override. Missing/local/unreachable backends abort unless --allow_local_mlflow is explicitly supplied for that launch.",
         "debug": "Boolean flag set by --debug; intended for configs/datasets to reduce work during quick checks.",
         "float32_matmul_precision": "Value passed to torch.set_float32_matmul_precision.",
         "save_top_k": "Number of best checkpoints to keep according to val_metric.",

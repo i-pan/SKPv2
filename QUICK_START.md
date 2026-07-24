@@ -292,8 +292,26 @@ This toy project exercises the intended SKPv2 workflow:
 3. Convert the dataset into a simple annotations table.
 4. Use a reusable dataset/task/model/loss/metric path.
 5. Keep experiment outputs under `experiments/`.
-6. Promote reusable fixes back into the SKPv2 template when you discover them.
+6. Track runs in `docs/EXPERIMENT_HISTORY.md` and detailed project reasoning in
+   `docs/DECISION_LOG.md`.
+7. Promote reusable fixes back into the SKPv2 template when you discover them,
+   documenting template-level choices separately in root `DECISIONS.md`.
 
 For a real project, keep private data paths, labels, and project-only modeling
 choices in the project repo. Move bug fixes, reusable utilities, broadly useful
 tests, and documentation improvements back into the SKPv2 template.
+
+For normal runs, configure a reachable non-local `MLFLOW_TRACKING_URI` in
+`.env`. Training aborts before launch when MLflow is missing or unreachable.
+Only add `--allow_local_mlflow` when local tracking has been deliberately
+authorized for that specific launch.
+
+Do not conflate the documentation scopes:
+
+- root `DECISIONS.md` belongs to the reusable SKPv2 template/framework;
+- `docs/EXPERIMENT_HISTORY.md` tracks the current project's runs and outcomes;
+- `docs/DECISION_LOG.md` contains the current project's detailed decisions and
+  analysis.
+
+Experiment History and Decision Log may intentionally describe the same work at
+different levels of detail.

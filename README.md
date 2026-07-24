@@ -18,8 +18,10 @@ uv sync --group train --group dev
 uv run pytest
 ```
 
-Optionally copy `.env.example` to `.env` and define `MLFLOW_TRACKING_URI`
-plus any required MLflow credentials for remote experiment tracking.
+Copy `.env.example` to `.env` and define a non-local `MLFLOW_TRACKING_URI` plus
+any required credentials. Normal training fails before launch if that backend is
+missing or unreachable. Local tracking requires explicit per-launch
+authorization with `--allow_local_mlflow`.
 
 Copy one of the starter configs from `src/skp/configs/templates/` into
 `src/skp/configs/`, edit the data paths and experiment settings, then run:
@@ -81,6 +83,36 @@ Why not copy only `src/skp` into a new repo? That works, but cloning the full
 template is safer because it keeps tests, README guidance, uv metadata,
 dependency groups, templates, and decision history together.
 
+## Project Documentation Contract
+
+Every repository cloned from SKPv2 keeps three complementary documentation
+records:
+
+| File | Scope | Primary purpose |
+|---|---|---|
+| `DECISIONS.md` | SKPv2 template/framework | Why the reusable framework and template changed |
+| `docs/EXPERIMENT_HISTORY.md` | Current experiment/project | What ran, its configuration, result, and disposition |
+| `docs/DECISION_LOG.md` | Current experiment/project | Detailed reasoning, evidence, alternatives, tradeoffs, and consequences |
+
+`docs/DECISION_LOG.md` is explicitly **not** a replacement for the root
+`DECISIONS.md`. A cloned project inherits `DECISIONS.md` as framework history;
+project-specific modeling, data, evaluation, and release decisions belong in
+`docs/DECISION_LOG.md`.
+
+Experiment History and the project Decision Log are complementary and should
+overlap when useful. A consequential experiment will commonly have a concise
+tracking entry in `EXPERIMENT_HISTORY.md` and a more detailed analytical entry
+in `DECISION_LOG.md`.
+
+Both project documents are required. The normal test suite checks that they
+exist, retain their documentation-contract markers, link to each other, and
+preserve the distinction from template-level decisions. Replace their starter
+content as the project develops, but retain the marker comments at the top.
+
+Root `AGENTS.md` provides the corresponding agent workflow: bootstrap an empty
+directory, inspect the framework and project data comprehensively, preserve
+these documentation scopes, validate MLflow before launch, and verify changes.
+
 ## Environment Strategy
 
 Each experiment should own its own uv environment and lockfile. Start from the
@@ -125,6 +157,29 @@ Disable it entirely with:
 GCP_NCCL_SOCKET_HACK_DISABLE=1 uv run skp-train ...
 ```
 
+## MLflow Launch Safety
+
+MLflow tracking is fail-closed. Before generating the run directory or
+initializing training, `skp-train`:
+
+1. resolves `cfg.mlflow_tracking_uri` or `MLFLOW_TRACKING_URI` (the workstation
+   example uses `http://127.0.0.1:5001`);
+2. rejects missing, file-based, and SQLite tracking as implicit local storage;
+3. queries non-local backends through the MLflow client; and
+4. aborts if the backend is unreachable.
+
+Start or repair the tracking server before retrying. If local tracking is
+deliberately acceptable for one launch, authorize it explicitly:
+
+```bash
+uv run skp-train my_config ... --allow_local_mlflow
+```
+
+If a remote URI is configured but unreachable, that flag uses an explicit local
+fallback under the experiment save directory and emits a prominent warning.
+The flag is intentionally CLI-only so permission does not silently persist into
+future runs. `--dry_run` remains an explicitly local temporary diagnostic mode.
+
 ## Updating The Template From A Project
 
 Most useful template improvements are discovered during real experiments. The
@@ -149,7 +204,9 @@ When you fix something reusable in a project:
    work when possible.
 3. Cherry-pick or patch that branch into the SKPv2 template repo.
 4. Add or update tests in the template.
-5. Record the decision in `DECISIONS.md`.
+5. Record the reusable template/framework decision in `DECISIONS.md`. Do not
+   put the downstream project's modeling decisions there; those belong in that
+   project's `docs/DECISION_LOG.md`.
 6. Pull the template changes back into active projects when useful.
 
 For small useful changes that are not urgent, write a short note in

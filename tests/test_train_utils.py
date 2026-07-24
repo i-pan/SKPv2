@@ -5,10 +5,14 @@ from argparse import Namespace
 import pytest
 
 from skp.configs import Config
-from skp.train import (
+from skp.tracking import (
     format_tracking_uri_for_log,
-    get_mlflow_run_name,
+    is_local_tracking_uri,
+    validate_mlflow_tracking,
+)
+from skp.train import (
     generate_random_run_id,
+    get_mlflow_run_name,
     get_split_save_name,
     parse_limit_batches,
     validate_trainer_args,
@@ -108,6 +112,108 @@ def test_format_tracking_uri_for_log_strips_embedded_credentials():
     )
     assert format_tracking_uri_for_log("sqlite:///mlflow.db") == "sqlite:///mlflow.db"
     assert format_tracking_uri_for_log(None) is None
+
+
+def test_local_mlflow_detection():
+    assert is_local_tracking_uri(None)
+    assert is_local_tracking_uri("")
+    assert is_local_tracking_uri("./mlruns")
+    assert is_local_tracking_uri("file:///tmp/mlruns")
+    assert is_local_tracking_uri("sqlite:///mlflow.db")
+    assert not is_local_tracking_uri("https://mlflow.example.com")
+
+
+def test_mlflow_preflight_rejects_implicit_local_tracking(tmp_path):
+    with pytest.raises(RuntimeError, match="Refusing to launch"):
+        validate_mlflow_tracking(
+            None,
+            allow_local=False,
+            save_dir=tmp_path,
+        )
+
+
+def test_mlflow_preflight_allows_local_only_with_explicit_opt_in(tmp_path):
+    with pytest.warns(RuntimeWarning, match="explicitly enabled"):
+        uri = validate_mlflow_tracking(
+            None,
+            allow_local=True,
+            save_dir=tmp_path,
+        )
+
+    assert uri == (tmp_path / "mlruns").resolve().as_uri()
+
+
+def test_mlflow_preflight_checks_remote_backend(monkeypatch, tmp_path):
+    calls = []
+
+    class Client:
+        def __init__(self, tracking_uri):
+            calls.append(("init", tracking_uri))
+
+        def search_experiments(self, max_results):
+            calls.append(("search", max_results))
+
+    monkeypatch.setattr("skp.tracking.MlflowClient", Client)
+    uri = validate_mlflow_tracking(
+        "https://mlflow.example.com",
+        allow_local=False,
+        save_dir=tmp_path,
+    )
+
+    assert uri == "https://mlflow.example.com"
+    assert calls == [
+        ("init", "https://mlflow.example.com"),
+        ("search", 1),
+    ]
+
+
+def test_mlflow_preflight_blocks_unreachable_remote(monkeypatch, tmp_path):
+    class Client:
+        def __init__(self, tracking_uri):
+            pass
+
+        def search_experiments(self, max_results):
+            raise ConnectionError("offline")
+
+    monkeypatch.setattr("skp.tracking.MlflowClient", Client)
+    with pytest.raises(RuntimeError, match="No training run was started"):
+        validate_mlflow_tracking(
+            "https://mlflow.example.com",
+            allow_local=False,
+            save_dir=tmp_path,
+        )
+
+
+def test_mlflow_preflight_can_fallback_after_explicit_authorization(
+    monkeypatch, tmp_path
+):
+    class Client:
+        def __init__(self, tracking_uri):
+            pass
+
+        def search_experiments(self, max_results):
+            raise ConnectionError("offline")
+
+    monkeypatch.setattr("skp.tracking.MlflowClient", Client)
+    with pytest.warns(RuntimeWarning, match="explicit local tracking"):
+        uri = validate_mlflow_tracking(
+            "https://mlflow.example.com",
+            allow_local=True,
+            save_dir=tmp_path,
+        )
+
+    assert uri == (tmp_path / "mlruns").resolve().as_uri()
+
+
+def test_mlflow_dry_run_is_an_explicit_local_mode(tmp_path):
+    uri = validate_mlflow_tracking(
+        None,
+        allow_local=False,
+        save_dir=tmp_path,
+        dry_run=True,
+    )
+
+    assert uri == (tmp_path / "mlflow_dry_run").resolve().as_uri()
 
 
 def test_environment_file_is_gitignored():

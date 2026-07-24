@@ -2,6 +2,36 @@
 
 This file tracks shared project decisions as SKPv2 is cleaned up into a reusable experiment template.
 
+This is the SKPv2 **template/framework** decision history. Projects cloned from
+SKPv2 must keep their modeling, dataset, evaluation, and release decisions in
+`docs/DECISION_LOG.md`, with experiment tracking in
+`docs/EXPERIMENT_HISTORY.md`. Those project documents are intentionally
+separate from this file.
+
+## 2026-07-24
+
+- Made MLflow tracking fail-closed for normal training. Missing, local, or
+  unreachable tracking backends now abort before the run directory and trainer
+  are created.
+- Added a per-launch `--allow_local_mlflow` escape hatch. It is deliberately a
+  CLI flag rather than a persistent config default so local fallback always
+  reflects explicit authorization.
+- Added root `AGENTS.md` as the canonical new-project bootstrap and orientation
+  contract, including remote setup, comprehensive code/data inspection,
+  documentation scopes, MLflow safety, experiment construction, and completion
+  checks.
+- Added required `docs/EXPERIMENT_HISTORY.md` and `docs/DECISION_LOG.md` starter
+  documents to every SKPv2 clone.
+- Defined Experiment History as the concise registry of runs, configurations,
+  outcomes, and dispositions.
+- Defined the project Decision Log as the detailed record of evidence,
+  alternatives, tradeoffs, interpretations, and downstream consequences.
+- Explicitly allowed intentional overlap between the two project documents.
+- Kept root `DECISIONS.md` exclusively for reusable SKPv2 template/framework
+  decisions, distinct from each cloned project's `docs/DECISION_LOG.md`.
+- Added tests that enforce the presence, identity markers, cross-links, and
+  scope distinction of the two project documentation files.
+
 ## 2026-06-03
 
 - Initialized Git locally, but intentionally did not make an initial commit yet.

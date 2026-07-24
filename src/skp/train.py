@@ -23,7 +23,6 @@ from lightning.pytorch.plugins import TorchSyncBatchNorm
 from lightning.pytorch.utilities import rank_zero_only
 from timm.layers import convert_sync_batchnorm
 from typing import Optional, Tuple
-from urllib.parse import urlsplit, urlunsplit
 
 from skp.callbacks import (
     ConsoleLogCallback,
@@ -36,6 +35,7 @@ from skp.configs.base import Config
 from skp.environment import configure_gcp_gpu_environment, load_project_dotenv
 from skp.optim import get_optimizer, get_scheduler
 from skp.runners import run_hyperparameter_sweep, run_progressive_resizing
+from skp.tracking import format_tracking_uri_for_log, validate_mlflow_tracking
 
 
 class TimmSyncBatchNorm(TorchSyncBatchNorm):
@@ -69,6 +69,15 @@ def parse_args():
     parser.add_argument("--compile_mode", type=str, default="default")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument(
+        "--allow_local_mlflow",
+        action="store_true",
+        help=(
+            "Explicitly authorize local MLflow tracking for this launch. "
+            "Without this flag, missing/local/unreachable tracking backends "
+            "abort before training."
+        ),
+    )
 
     # Lightning Trainer arguments
     # any arguments above need to be popped before passing to get_trainer function
@@ -329,6 +338,17 @@ def create_save_dirs(save_dir: str, overwrite: bool = False) -> None:
 
 
 def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
+    configured_tracking_uri = cfg.get("mlflow_tracking_uri") or os.environ.get(
+        "MLFLOW_TRACKING_URI"
+    )
+    tracking_uri = validate_mlflow_tracking(
+        configured_tracking_uri,
+        allow_local=cfg.get("allow_local_mlflow", False) or False,
+        save_dir=cfg.save_dir,
+        dry_run=cfg.get("dry_run", False) or False,
+    )
+    cfg.resolved_mlflow_tracking_uri = tracking_uri
+
     save_dir = os.path.join(cfg.save_dir, get_split_save_name(cfg))
     create_save_dirs(save_dir, overwrite=cfg.overwrite_run)
     callbacks = []
@@ -411,11 +431,6 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
         strategy = cfg.args["strategy"]
         plugins = None
 
-    tracking_uri = cfg.get("mlflow_tracking_uri") or os.environ.get("MLFLOW_TRACKING_URI")
-    if cfg.get("dry_run"):
-        tracking_uri = os.path.join(cfg.save_dir, "mlflow_dry_run")
-        _print_rank_zero(f"MLflow dry run enabled: logging to {tracking_uri}")
-
     print(f"MLflow tracking URI: {format_tracking_uri_for_log(tracking_uri)}")
 
     logger = MLFlowLogger(
@@ -446,19 +461,6 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
     )
 
     return trainer, cfg
-
-
-def format_tracking_uri_for_log(tracking_uri: str | None) -> str | None:
-    """Avoid printing credentials embedded in a tracking URI."""
-    if tracking_uri is None:
-        return None
-    parts = urlsplit(tracking_uri)
-    if parts.username is None and parts.password is None:
-        return tracking_uri
-    hostname = parts.hostname or ""
-    if parts.port is not None:
-        hostname = f"{hostname}:{parts.port}"
-    return urlunsplit((parts.scheme, hostname, parts.path, parts.query, parts.fragment))
 
 
 def get_loss(cfg: Config) -> torch.nn.Module:
@@ -695,6 +697,21 @@ def main():
         _print_rank_zero(
             f"Dry run enabled: saving outputs to temporary directory {cfg.save_dir}"
         )
+
+    cfg.allow_local_mlflow = args.__dict__.pop("allow_local_mlflow", False)
+    configured_tracking_uri = cfg.get("mlflow_tracking_uri") or os.environ.get(
+        "MLFLOW_TRACKING_URI"
+    )
+    preflight_tracking_uri = validate_mlflow_tracking(
+        configured_tracking_uri,
+        allow_local=cfg.allow_local_mlflow,
+        save_dir=cfg.save_dir,
+        dry_run=cfg.get("dry_run", False) or False,
+    )
+    _print_rank_zero(
+        "MLflow preflight passed: "
+        f"{format_tracking_uri_for_log(preflight_tracking_uri)}"
+    )
 
     cfg.profile = args.__dict__.pop("profile", False)
     if cfg.profile:
