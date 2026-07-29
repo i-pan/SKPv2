@@ -8,6 +8,19 @@ SKPv2 must keep their modeling, dataset, evaluation, and release decisions in
 `docs/EXPERIMENT_HISTORY.md`. Those project documents are intentionally
 separate from this file.
 
+## 2026-07-27
+
+- Added a reusable slice-wise 3D multiple-instance learning classifier for
+  volume-level supervision without slice labels. The model treats `(B, C, D,
+  H, W)` inputs as bags of `D` slices, applies a shared 2D timm encoder, and
+  produces both volume-level `logits` and pseudolabel-ready `slice_logits`.
+- Chose length-normalized Log-Mean-Exp as the default aggregation so otherwise
+  identical volumes do not receive systematically shifted logits solely because
+  they contain different numbers of valid slices. Raw Log-Sum-Exp remains
+  configurable.
+- Added optional `(B, D)` valid-slice masking for padded variable-length bags
+  and made all-invalid bags fail explicitly.
+
 ## 2026-07-24
 
 - Made MLflow tracking fail-closed for normal training. Missing, local, or

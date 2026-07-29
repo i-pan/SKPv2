@@ -54,6 +54,8 @@ CONFIG_FIELD_DOCS = {
         "group_index_col": "Annotation column identifying grouped samples.",
         "mix_proba": "Probability of applying MixUp during a training batch.",
         "mixup": "Beta distribution alpha for MixUp.",
+        "mil_pool_temperature": "Positive Log-Sum-Exp temperature used by the slice-wise 3D MIL classifier.",
+        "mil_pool_normalize": "Use length-normalized Log-Mean-Exp pooling so volume logits do not shift with valid slice count.",
     },
     "segmentation_2d": {
         "deep_supervision": "Enable auxiliary segmentation heads when supported.",
@@ -159,6 +161,8 @@ def classification_2d_defaults(cfg: Config) -> Config:
     cfg.group_index_col = None
     cfg.mix_proba = None
     cfg.mixup = None
+    cfg.mil_pool_temperature = 1.0
+    cfg.mil_pool_normalize = True
     return cfg
 
 

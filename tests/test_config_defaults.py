@@ -37,5 +37,7 @@ def test_default_groups_define_documented_core_values():
     assert cfg.get("project") is None
     assert cfg.persistent_workers is True
     assert cfg.mixup is None
+    assert cfg.mil_pool_temperature == 1.0
+    assert cfg.mil_pool_normalize is True
     assert "save_dir" in CONFIG_FIELD_DOCS["runtime"]
     assert "num_workers" in CONFIG_FIELD_DOCS["dataloader"]

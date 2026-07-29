@@ -362,6 +362,32 @@ Task files are LightningModule wrappers. Datasets define sample loading; tasks
 own training-time policy such as samplers and dataloader construction. This is
 why `samplers.py` lives under `tasks/`.
 
+## Slice-Wise 3D MIL
+
+`classification.mil_3d` supports volume-level supervision when slice labels are
+not available. It expects `batch["x"]` in `(B, C, D, H, W)` format, where `D`
+is the slice axis and `C` may contain multiple adjacent slices. A shared 2D timm
+backbone encodes each slice, a linear head produces per-slice class logits, and
+Log-Sum-Exp pooling produces the volume logits used by the standard
+classification task.
+
+```python
+cfg.model = "classification.mil_3d"
+cfg.num_input_channels = 3
+cfg.num_classes = 4
+cfg.mil_pool_temperature = 1.0
+cfg.mil_pool_normalize = True
+```
+
+The model always returns volume-level `logits` and pseudolabel-ready
+`slice_logits` with shape `(B, D, num_classes)`. Pass a boolean `(B, D)` tensor
+as `batch["mask"]` for padded variable-length volumes. Set
+`return_features=True` to also receive `slice_features`.
+
+Length-normalized Log-Mean-Exp is the default because raw Log-Sum-Exp shifts
+volume logits as the number of valid slices changes. Set
+`cfg.mil_pool_normalize = False` when raw Log-Sum-Exp is explicitly desired.
+
 ## CLI Overrides
 
 Unknown CLI args are interpreted as config overrides:
