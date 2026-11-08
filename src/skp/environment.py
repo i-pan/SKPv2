@@ -16,15 +16,15 @@ def configure_gcp_gpu_environment() -> None:
     """Work around NCCL library/socket issues on some GCP GPU VM images.
 
     Some GCP images expose NCCL settings that can make DDP initialization fail.
-    This cleanup forces NCCL onto the socket backend and a predictable interface
-    prefix unless explicitly disabled.
+    SKP_ENV_PROFILE=gcp_socket supplies socket defaults only when unset.
+    Explicit NCCL settings and library paths are always preserved.
     """
-    if _env_bool("GCP_NCCL_SOCKET_HACK_DISABLE", False):
+    if os.environ.get("SKP_ENV_PROFILE") != "gcp_socket" or _env_bool(
+        "GCP_NCCL_SOCKET_HACK_DISABLE", False
+    ):
         return
 
-    os.environ.pop("NCCL_NET", None)
-    os.environ.pop("LD_LIBRARY_PATH", None)
-    os.environ["NCCL_NET"] = "Socket"
+    os.environ.setdefault("NCCL_NET", "Socket")
     os.environ["NCCL_SOCKET_IFNAME"] = os.environ.get("NCCL_SOCKET_IFNAME", "ens")
 
 

@@ -57,6 +57,7 @@ class DistributedSamplerWrapper(DistributedSampler):
         num_replicas: Optional[int] = None,
         rank: Optional[int] = None,
         shuffle: bool = True,
+        seed: int = 0,
     ):
         """
         Args:
@@ -73,6 +74,7 @@ class DistributedSamplerWrapper(DistributedSampler):
             num_replicas=num_replicas,
             rank=rank,
             shuffle=shuffle,
+            seed=seed,
         )
         self.sampler = sampler
 
@@ -82,6 +84,11 @@ class DistributedSamplerWrapper(DistributedSampler):
         indexes_of_indexes = list(super().__iter__())
         subsampler_indexes = self.dataset
         return iter([subsampler_indexes[index] for index in indexes_of_indexes])
+
+    def set_epoch(self, epoch):
+        super().set_epoch(epoch)
+        if hasattr(self.sampler, "set_epoch"):
+            self.sampler.set_epoch(epoch)
 
     def __repr__(self) -> str:
         return f"DistributedSamplerWrapper.{self.sampler}"
@@ -216,3 +223,55 @@ class WeightedWithDecaySampler(Sampler):
 
     def __repr__(self) -> str:
         return f"WeightedWithDecaySampler, decay_alpha={self.alpha:0.2f}"
+
+
+class ExactDistributedEvalSampler(Sampler):
+    """No padding or dropping; an empty shard is valid."""
+
+    def __init__(self, dataset, num_replicas, rank):
+        if num_replicas < 1 or not 0 <= rank < num_replicas:
+            raise ValueError("Invalid distributed topology")
+        self.indices = range(rank, len(dataset), num_replicas)
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+
+
+class GroupBalancedSampler(Sampler):
+    """Select a fixed number of examples per group, deterministically per epoch."""
+
+    def __init__(self, dataset, cfg):
+        groups = dataset.group_ids
+        if len(groups) != len(dataset):
+            raise ValueError("group_ids must align with dataset rows")
+        self.groups = {}
+        for index, group in enumerate(groups):
+            self.groups.setdefault(group, []).append(index)
+        self.samples_per_group = cfg.get("samples_per_group", 1)
+        if self.samples_per_group < 1:
+            raise ValueError("samples_per_group must be positive")
+        self.seed = cfg.get("resolved_seed", cfg.get("seed")) or 0
+        self.epoch = 0
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+    def __len__(self):
+        return len(self.groups) * self.samples_per_group
+
+    def __iter__(self):
+        rng = np.random.default_rng(self.seed + self.epoch)
+        indices = []
+        for values in self.groups.values():
+            indices.extend(
+                rng.choice(
+                    values,
+                    self.samples_per_group,
+                    replace=len(values) < self.samples_per_group,
+                )
+            )
+        rng.shuffle(indices)
+        return iter(indices)

@@ -43,6 +43,7 @@ wds = [
 
 [project.scripts]
 skp-train = "skp.train:main"
+skp-curves = "skp.curves:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

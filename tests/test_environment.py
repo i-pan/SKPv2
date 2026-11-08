@@ -13,7 +13,7 @@ def test_load_project_dotenv_does_not_override_exported_values(monkeypatch, tmp_
     assert os.environ["TEST_DOTENV"] == "exported"
 
 
-def test_configure_gcp_gpu_environment_overrides_bad_network_defaults(monkeypatch):
+def test_configure_gcp_gpu_environment_is_opt_in(monkeypatch):
     monkeypatch.setenv("NCCL_NET", "Plugin")
     monkeypatch.setenv("LD_LIBRARY_PATH", "/usr/local/lib")
     monkeypatch.delenv("NCCL_SOCKET_IFNAME", raising=False)
@@ -21,12 +21,13 @@ def test_configure_gcp_gpu_environment_overrides_bad_network_defaults(monkeypatc
 
     configure_gcp_gpu_environment()
 
-    assert "LD_LIBRARY_PATH" not in os.environ
-    assert os.environ["NCCL_NET"] == "Socket"
-    assert os.environ["NCCL_SOCKET_IFNAME"] == "ens"
+    assert os.environ["LD_LIBRARY_PATH"] == "/usr/local/lib"
+    assert os.environ["NCCL_NET"] == "Plugin"
+    assert "NCCL_SOCKET_IFNAME" not in os.environ
 
 
 def test_configure_gcp_gpu_environment_sets_socket_default(monkeypatch):
+    monkeypatch.setenv("SKP_ENV_PROFILE", "gcp_socket")
     monkeypatch.delenv("NCCL_NET", raising=False)
     monkeypatch.delenv("NCCL_SOCKET_IFNAME", raising=False)
 
@@ -37,12 +38,13 @@ def test_configure_gcp_gpu_environment_sets_socket_default(monkeypatch):
 
 
 def test_configure_gcp_gpu_environment_respects_socket_interface_override(monkeypatch):
+    monkeypatch.setenv("SKP_ENV_PROFILE", "gcp_socket")
     monkeypatch.setenv("NCCL_NET", "Plugin")
     monkeypatch.setenv("NCCL_SOCKET_IFNAME", "eth")
 
     configure_gcp_gpu_environment()
 
-    assert os.environ["NCCL_NET"] == "Socket"
+    assert os.environ["NCCL_NET"] == "Plugin"
     assert os.environ["NCCL_SOCKET_IFNAME"] == "eth"
 
 

@@ -8,6 +8,60 @@ SKPv2 must keep their modeling, dataset, evaluation, and release decisions in
 `docs/EXPERIMENT_HISTORY.md`. Those project documents are intentionally
 separate from this file.
 
+## 2026-11-08: Deep-review integration corrections
+
+- Count successful optimizer steps for EMA using optimizer post-step hooks;
+  gradient-scaler skips do not advance the decay ramp. Persist this count and
+  reject scaled historical resumes that lack it instead of guessing.
+- Serialize evaluated EMA weights through the module checkpoint hook as well as
+  the callback path because Lightning skips callback hooks for weights-only saves.
+- Built-in masked BCE/focal and ignored/weighted cross-entropy report their true
+  reduction denominators. Combined losses preserve component denominators and
+  recompute weighted component means after global aggregation. Unsupported
+  non-mean validation reductions fail explicitly.
+- Reconstruct legacy fractional validation using Lightning's floored batch
+  interval and completed optimizer updates. ETA requires a previously observed
+  comparable interval; ambiguous schedules remain unavailable.
+- Parse CLI overrides for unset options as safe literals with a string fallback.
+  Create best-checkpoint links with filesystem APIs, skip missing selections, and
+  preserve existing regular files.
+- Complete contract, adversarial, independent and final verification passes under
+  the repository-local deep-review skill; retain explicit GPU/NCCL limits.
+
+## 2026-11-08: Pre-commit integration review
+
+- Restrict raw-weight restoration to fit/resume. Standalone checkpoint loading
+  and validate/test/predict use inference weights; an existing EMA callback does
+  not overwrite an explicitly loaded evaluation checkpoint.
+- Broadcast prediction-export serialization/write failures before metric
+  collectives so an empty or non-writing rank cannot be stranded.
+- Deduplicate tied EMA state aliases, reject changed alias topology, and reject
+  non-finite classification metric inputs before threshold mapping.
+- Honor explicit OneCycle epochs/steps horizons and verify the initialized
+  trainer world size against the schedule/topology contract.
+- Add failing-before-fix regressions, standalone Lightning evaluation coverage,
+  and a two-rank export-failure probe before preparing the migration commit.
+
+## 2026-11-08: Downstream correctness migration
+
+- Implemented sampler-aware schedule sizing and scheduler-specific dispatch, with
+  one shared interval contract; Config deepcopy now preserves recursive graphs
+  without sharing mutable nested values with the source.
+- New configs enable ordinary EMA (0.99, linear 500-update decay ramp). Checkpoints
+  separate evaluated inference state from raw resumable state and persist averaging
+  settings. Historical ambiguous EMA resumes fail rather than infer new defaults.
+- Exact validation is opt-in and bounded to tested classification contracts.
+  Empty-rank control batches keep Lightning hooks aligned without fake predictions.
+  Loss reductions expose denominators; undefined mapped-target AUCs stay undefined.
+- Added generic opt-in prediction export, curves, provenance scaffolding, seeded
+  group sampling, MIL pooling/chunk controls and DICOM inspection/serial loading.
+  Kept clinical mappings, project registries and submission policy downstream.
+- GCP socket settings now require an explicit profile and preserve user overrides.
+- Added the audit-only template-review skill, read-only inventory helper and
+  classified backlog. See docs/UPSTREAM_MIGRATION.md for compatibility boundaries,
+  accepted contracts and tests. GPU/NCCL and secondary architecture ports are not
+  certified by the CPU suite. No wholesale cherry-pick, commit or push was made.
+
 ## 2026-11-08
 
 - Added the repository-local training-monitor skill with full and fast modes,
@@ -134,3 +188,13 @@ separate from this file.
   experiments easier to scan without opening run details.
 - CUDA training now defaults to `--devices -1`, resolving to all visible CUDA
   devices during trainer validation before Lightning trainer construction.
+
+## 2026-11-08: Reusable deep-review skill
+
+- Include `.agents/skills/deep-review` in the template so downstream clones inherit
+  contract tracing, failure-path verification, fresh-context review and explicit
+  readiness criteria within one review request. Keep template-review focused on
+  upstream migration. Neither workflow claims exhaustive bug detection.
+- The skill passed structural validation and an isolated independent review trial
+  that found an integration regression despite passing tests, preserved source,
+  and distinguished an undocumented contract from a confirmed defect.

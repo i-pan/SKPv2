@@ -27,11 +27,9 @@ def distributed_concat(x: torch.Tensor, dim: int = 0) -> torch.Tensor:
     gathered = [torch.empty_like(x) for _ in range(dist.get_world_size())]
     dist.all_gather(gathered, x)
     gathered = [
-        tensor.narrow(dim, 0, size)
-        for tensor, size in zip(gathered, sizes)
-        if size > 0
+        tensor.narrow(dim, 0, size) for tensor, size in zip(gathered, sizes) if size > 0
     ]
-    return torch.cat(gathered, dim=dim)
+    return torch.cat(gathered, dim=dim) if gathered else x.narrow(dim, 0, 0)
 
 
 def _as_numpy(x: torch.Tensor):
@@ -41,20 +39,26 @@ def _as_numpy(x: torch.Tensor):
     return x.numpy()
 
 
-def auc(t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
-    if len(t.unique()) == 1:
-        return torch.tensor(0.5)
-    t = (t >= 0.5).float()  # Hacky fix for using soft labels
-    t, p = _as_numpy(t), _as_numpy(p)
-    return torch.tensor(metrics.roc_auc_score(y_true=t, y_score=p))
+def auc(t: torch.Tensor, p: torch.Tensor, threshold=0.5) -> torch.Tensor:
+    if not torch.isfinite(t).all() or not torch.isfinite(p).all():
+        raise ValueError("Metric targets and predictions must be finite")
+    t = (t >= threshold).float()
+    if len(t.unique()) < 2:
+        return torch.tensor(float("nan"))
+    return torch.tensor(
+        metrics.roc_auc_score(y_true=_as_numpy(t), y_score=_as_numpy(p))
+    )
 
 
-def avp(t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
-    if len(t.unique()) == 1:
-        return torch.tensor(0)
-    t = (t >= 0.5).float()
-    t, p = _as_numpy(t), _as_numpy(p)
-    return torch.tensor(metrics.average_precision_score(y_true=t, y_score=p))
+def avp(t: torch.Tensor, p: torch.Tensor, threshold=0.5) -> torch.Tensor:
+    if not torch.isfinite(t).all() or not torch.isfinite(p).all():
+        raise ValueError("Metric targets and predictions must be finite")
+    t = (t >= threshold).float()
+    if len(t.unique()) < 2:
+        return torch.tensor(float("nan"))
+    return torch.tensor(
+        metrics.average_precision_score(y_true=_as_numpy(t), y_score=_as_numpy(p))
+    )
 
 
 def kappa(t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
@@ -81,3 +85,30 @@ def mse(t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
 
 def accuracy(t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
     return torch.mean((t == p).float())
+
+
+def gather_states(state):
+    """Gather possibly empty rank states without guessing target dimensions."""
+    local = (
+        state.detach().cpu()
+        if isinstance(state, torch.Tensor)
+        else (torch.cat(state).detach().cpu() if state else None)
+    )
+    parts = [local]
+    if dist.is_available() and dist.is_initialized():
+        parts = [None] * dist.get_world_size()
+        dist.all_gather_object(parts, local)
+    parts = [p for p in parts if p is not None]
+    if not parts:
+        raise ValueError("No validation samples on any rank")
+    return torch.cat(parts)
+
+
+def score_summary(values, name):
+    scores = torch.stack(values)
+    valid = torch.isfinite(scores)
+    return {
+        f"{name}_mean": scores.mean(),
+        f"{name}_valid_classes": valid.sum(),
+        f"{name}_undefined_classes": (~valid).sum(),
+    }

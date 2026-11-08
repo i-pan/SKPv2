@@ -46,12 +46,20 @@ class ModelEmaV3(nn.Module):
         device: Optional[torch.device] = None,
         foreach: bool = True,
         exclude_buffers: bool = False,
+        warmup_mode: str | None = None,
+        warmup_steps: int = 500,
     ):
         super().__init__()
         # make a copy of the model for accumulating moving average of weights
         self.module = deepcopy(model)
         self.module.eval()
         self.module.requires_grad_(False)
+        if warmup_mode not in {None, "linear", "power"}:
+            raise ValueError("Unknown EMA warmup mode")
+        if warmup_steps < 1 or not 0 <= decay <= 1:
+            raise ValueError("Invalid EMA decay or warmup steps")
+        self.warmup_mode = warmup_mode
+        self.warmup_steps = warmup_steps
         self.decay = decay
         self.min_decay = min_decay
         self.update_after_step = update_after_step
@@ -77,7 +85,10 @@ class ModelEmaV3(nn.Module):
         if step <= 0:
             return 0.0
 
-        if self.use_warmup:
+        if self.warmup_mode == "linear":
+            return self.decay * min(step / max(1, self.warmup_steps - 1), 1.0)
+
+        if self.use_warmup or self.warmup_mode == "power":
             decay = 1 - (1 + step / self.warmup_gamma) ** -self.warmup_power
             decay = max(min(decay, self.decay), self.min_decay)
         else:
@@ -94,61 +105,57 @@ class ModelEmaV3(nn.Module):
         else:
             self.apply_update_(model, decay)
 
-    def apply_update_(self, model, decay: float):
-        # interpolate parameters and buffers
-        if self.foreach:
-            ema_lerp_values = []
-            model_lerp_values = []
-            for ema_v, model_v in zip(
-                self.module.state_dict().values(), model.state_dict().values()
-            ):
-                if ema_v.is_floating_point():
-                    ema_lerp_values.append(ema_v)
-                    model_lerp_values.append(model_v)
-                else:
-                    ema_v.copy_(model_v)
+    def _pairs(self, model):
+        source, target = model.state_dict(), self.module.state_dict()
+        if source.keys() != target.keys():
+            raise ValueError("EMA state keys differ")
+        for key in target:
+            if source[key].shape != target[key].shape:
+                raise ValueError(f"EMA shape mismatch: {key}")
 
-            if hasattr(torch, "_foreach_lerp_"):
-                torch._foreach_lerp_(
-                    ema_lerp_values, model_lerp_values, weight=1.0 - decay
-                )
-            else:
-                torch._foreach_mul_(ema_lerp_values, scalar=decay)
-                torch._foreach_add_(
-                    ema_lerp_values, model_lerp_values, alpha=1.0 - decay
-                )
-        else:
-            for ema_v, model_v in zip(
-                self.module.state_dict().values(), model.state_dict().values()
-            ):
-                if ema_v.is_floating_point():
-                    ema_v.lerp_(model_v.to(device=self.device), weight=1.0 - decay)
+        def signature(value):
+            return (value.device, value.data_ptr(), value.shape, value.stride())
+
+        seen, pairs = {}, []
+        for key, value in target.items():
+            target_id, source_id = signature(value), signature(source[key])
+            if value.numel() and target_id in seen:
+                if seen[target_id] != source_id:
+                    raise ValueError(f"EMA alias topology differs: {key}")
+                continue
+            seen[target_id] = source_id
+            pairs.append((key, value, source[key].to(value.device)))
+        return pairs
+
+    def apply_update_(self, model, decay: float):
+        groups = {}
+        for _, target, source in self._pairs(model):
+            if target.is_floating_point():
+                if self.foreach:
+                    targets, sources = groups.setdefault(
+                        (target.device, target.dtype), ([], [])
+                    )
+                    targets.append(target)
+                    sources.append(source)
                 else:
-                    ema_v.copy_(model_v.to(device=self.device))
+                    target.lerp_(source, weight=1.0 - decay)
+            else:
+                target.copy_(source)
+        for targets, sources in groups.values():
+            torch._foreach_lerp_(targets, sources, weight=1.0 - decay)
 
     def apply_update_no_buffers_(self, model, decay: float):
-        # interpolate parameters, copy buffers
-        ema_params = tuple(self.module.parameters())
-        model_params = tuple(model.parameters())
-        if self.foreach:
-            if hasattr(torch, "_foreach_lerp_"):
-                torch._foreach_lerp_(ema_params, model_params, weight=1.0 - decay)
+        parameters = dict(self.module.named_parameters(remove_duplicate=False))
+        for key, target, source in self._pairs(model):
+            if key in parameters and target.is_floating_point():
+                target.lerp_(source, weight=1.0 - decay)
             else:
-                torch._foreach_mul_(ema_params, scalar=decay)
-                torch._foreach_add_(ema_params, model_params, alpha=1 - decay)
-        else:
-            for ema_p, model_p in zip(ema_params, model_params):
-                ema_p.lerp_(model_p.to(device=self.device), weight=1.0 - decay)
-
-        for ema_b, model_b in zip(self.module.buffers(), model.buffers()):
-            ema_b.copy_(model_b.to(device=self.device))
+                target.copy_(source)
 
     @torch.no_grad()
     def set(self, model):
-        for ema_v, model_v in zip(
-            self.module.state_dict().values(), model.state_dict().values()
-        ):
-            ema_v.copy_(model_v.to(device=self.device))
+        for _, target, source in self._pairs(model):
+            target.copy_(source)
 
     def forward(self, *args, **kwargs):
         return self.module(*args, **kwargs)

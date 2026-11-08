@@ -3,6 +3,12 @@ from skp.configs import Config
 
 CONFIG_FIELD_DOCS = {
     "runtime": {
+        "seed": "Optional explicit model/loader seed; None preserves historical unseeded runs.",
+        "fold_seed_stride": "Add fold * stride to seed (default zero).",
+        "required_world_size": "Optional fail-closed topology requirement.",
+        "exact_validation": "Opt-in exact map-style classification evaluation; requires stable sample IDs.",
+        "prediction_export": "Opt-in atomic validation NPZ export; requires target_order and data_provenance.",
+        "metric_target_threshold": "Map soft classification targets before determining metric validity.",
         "save_dir": "Root directory for experiment outputs before config/run/fold subdirectories are appended.",
         "project": "Required MLflow experiment name. Set explicitly in each experiment config.",
         "mlflow_tracking_uri": "MLflow tracking URI override. Missing/local/unreachable backends abort unless --allow_local_mlflow is explicitly supplied for that launch.",
@@ -22,6 +28,10 @@ CONFIG_FIELD_DOCS = {
         "ema": "EMA callback settings. ema['on'] controls whether the callback is enabled.",
     },
     "dataloader": {
+        "train_drop_last": "Drop partial training batches; schedule sizing uses the same value.",
+        "sample_id_column": "Immutable unique sample-ID column exposed by simple2d for validation coverage/export.",
+        "group_id_column": "Group IDs exposed by simple2d for GroupBalancedSampler.",
+        "samples_per_group": "Number of examples selected from each group each epoch.",
         "num_workers": "Training DataLoader worker count.",
         "pin_memory": "DataLoader pin_memory flag.",
         "persistent_workers": "Keeps workers alive across epochs when num_workers > 0.",
@@ -39,6 +49,8 @@ CONFIG_FIELD_DOCS = {
         "num_iterations_per_epoch": "Optional fixed number of train iterations per epoch.",
     },
     "classification_2d": {
+        "mil_pooling": "lse (default), attention, label_attention or gru.",
+        "encoder_chunk_size": "MIL encoder slice chunk; changes training BatchNorm population and is recorded as a training parameter.",
         "features_only": "Build backbone feature extractor without final classification head when supported.",
         "freeze_backbone": "Freeze backbone parameters.",
         "load_pretrained_backbone": "Path to backbone weights to load before training.",
@@ -89,6 +101,12 @@ def runtime_defaults(cfg: Config) -> Config:
     cfg.save_dir = "./experiments"
     cfg.mlflow_tracking_uri = None
     cfg.debug = False
+    cfg.seed = None
+    cfg.fold_seed_stride = 0
+    cfg.required_world_size = None
+    cfg.prediction_export = False
+    cfg.exact_validation = False
+    cfg.metric_target_threshold = 0.5
     cfg.float32_matmul_precision = "high"
     cfg.save_top_k = 1
     cfg.save_weights_only = False
@@ -114,13 +132,12 @@ def runtime_defaults(cfg: Config) -> Config:
     cfg.progressive_resizing = None
     cfg.hyperparameter_sweep = None
     cfg.ema = {
-        "on": False,
-        "decay": 0.9999,
+        "on": True,
+        "decay": 0.99,
+        "warmup_mode": "linear",
+        "warmup_steps": 500,
         "update_after_step": 0,
         "update_every_n_steps": 1,
-        "use_warmup": False,
-        "warmup_gamma": 1.0,
-        "warmup_power": 2 / 3,
         "switch_ema": False,
     }
     return cfg
@@ -129,6 +146,10 @@ def runtime_defaults(cfg: Config) -> Config:
 def dataloader_defaults(cfg: Config) -> Config:
     """Apply defaults for standard and WebDataset dataloader construction."""
     cfg.num_workers = 4
+    cfg.train_drop_last = True
+    cfg.sample_id_column = None
+    cfg.group_id_column = None
+    cfg.samples_per_group = 1
     cfg.pin_memory = True
     cfg.persistent_workers = True
     cfg.skip_failed_data = False
@@ -161,6 +182,8 @@ def classification_2d_defaults(cfg: Config) -> Config:
     cfg.group_index_col = None
     cfg.mix_proba = None
     cfg.mixup = None
+    cfg.mil_pooling = "lse"
+    cfg.encoder_chunk_size = None
     cfg.mil_pool_temperature = 1.0
     cfg.mil_pool_normalize = True
     return cfg

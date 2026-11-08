@@ -64,36 +64,62 @@ def get_optimizer(cfg: Config, model: nn.Module) -> Optimizer:
     return getattr(optim, cfg.optimizer)(params=params, **optimizer_params)
 
 
-def get_scheduler(cfg: Config, optimizer: Optimizer) -> LRScheduler:
+def scheduler_interval(cfg: Config) -> str:
+    interval = cfg.get("scheduler_interval", "epoch")
+    if interval not in {"step", "epoch"}:
+        raise ValueError("scheduler_interval must be step or epoch")
+    if cfg.get("scheduler") == "ReduceLROnPlateau" and interval != "epoch":
+        raise ValueError("ReduceLROnPlateau requires epoch validation")
+    return interval
+
+
+def get_scheduler(cfg: Config, optimizer: Optimizer, train_dataset=None) -> LRScheduler:
     if cfg.get("scheduler") is None:
         return None
 
     scheduler_params = dict(cfg.get("scheduler_params") or {})
 
-    max_step_param = "T_max" if cfg.scheduler == "CosineAnnealingLR" else "total_steps"
-    if cfg.get("num_iterations_per_epoch") is not None:
-        steps_per_epoch = cfg.num_iterations_per_epoch
-    else:
-        # In DDP, each optimizer step consumes batch_size * world_size examples
-        # before gradient accumulation is considered.
-        effective_batch_size = cfg.batch_size * cfg.world_size
-        steps_per_epoch = math.ceil(cfg.n_train / effective_batch_size)
+    interval = scheduler_interval(cfg)
+    if cfg.scheduler in {
+        "CosineAnnealingLR",
+        "LinearWarmupCosineAnnealingLR",
+        "OneCycleLR",
+    }:
+        from skp.tasks.utils import training_batches_per_epoch
 
-    # For scheduler_interval="step", the scheduler is stepped once after every
-    # OPTIMIZER step, so steps/epoch needs to be adjusted if using gradient accumulation
-    steps_per_epoch = math.ceil(
-        steps_per_epoch / (cfg.get("accumulate_grad_batches", 1) or 1)
-    )
-
-    # Update the step count in params
-    scheduler_params.setdefault(max_step_param, steps_per_epoch * cfg.num_epochs)
+        batches = training_batches_per_epoch(cfg, train_dataset)
+        accumulation = cfg.get("accumulate_grad_batches", 1)
+        if not isinstance(accumulation, int) or accumulation < 1:
+            raise ValueError("accumulate_grad_batches must be a positive integer")
+        updates = math.ceil(batches / accumulation)
+        total = updates * cfg.num_epochs if interval == "step" else cfg.num_epochs
+        max_steps = (cfg.get("args", {}) or {}).get("max_steps", -1)
+        if interval == "step" and max_steps > 0:
+            total = min(total, max_steps)
+        key = "T_max" if cfg.scheduler == "CosineAnnealingLR" else "total_steps"
+        if (
+            cfg.scheduler == "OneCycleLR"
+            and "total_steps" not in scheduler_params
+            and "epochs" in scheduler_params
+            and "steps_per_epoch" in scheduler_params
+        ):
+            total = scheduler_params["epochs"] * scheduler_params["steps_per_epoch"]
+        scheduler_params.setdefault(key, total)
+        cfg.scheduler_resolved_total_steps = scheduler_params[key]
+        cfg.scheduler_optimizer_steps_per_epoch = updates
+        print(
+            f"LR schedule: batches/epoch={batches}, updates/epoch={updates}, "
+            f"{key}={scheduler_params[key]}, interval={interval}"
+        )
 
     # --- Scheduler Selection ---
     if cfg.scheduler == "LinearWarmupCosineAnnealingLR":
         optimizer_lrs = [float(g["lr"]) for g in optimizer.param_groups]
         if "max_lr" in scheduler_params:
             max_lrs = _as_group_values(
-                scheduler_params["max_lr"], len(optimizer_lrs), "scheduler_params.max_lr"
+                scheduler_params["max_lr"],
+                len(optimizer_lrs),
+                "scheduler_params.max_lr",
             )
             if max_lrs != optimizer_lrs:
                 raise ValueError(
@@ -105,9 +131,7 @@ def get_scheduler(cfg: Config, optimizer: Optimizer) -> LRScheduler:
 
         scheduler_params.setdefault("init_lr", 0.0)
         scheduler_params.setdefault("final_lr", 0.0)
-        return LinearWarmupCosineAnnealingLR(
-            optimizer=optimizer, **scheduler_params
-        )
+        return LinearWarmupCosineAnnealingLR(optimizer=optimizer, **scheduler_params)
 
     else:
         # Standard PyTorch schedulers (StepLR, ReduceLROnPlateau, etc.)

@@ -40,17 +40,35 @@ class Task(BaseTask):
                 batch = self.mixup(batch)
         out = self.model(batch, return_loss=True)
         for k, v in out.items():
-            if "loss" in k:
+            if "loss" in k and k not in {
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
                 self.log(k, v, prog_bar=k == "loss")
         return out["loss"]
 
     def validation_step(self, batch: Dict, batch_idx: int) -> torch.Tensor:
+        if batch.get("_skp_empty", False):
+            return None
+        if self.cfg.get("exact_validation", False):
+            self.validation_ids.extend(map(str, batch["sample_id"]))
         out = self.model(batch, return_loss=True)
         for k, v in out.items():
-            if "loss" in k:
-                self.val_loss[k].append(v.detach().clone())
+            if "loss" in k and k not in {
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
+                self.record_validation_loss(k, v, batch, out)
         for m in self.metrics:
             # passing output and input dicts is the most flexible
             # then the metric can be customized to get the keys they need
             m.update(out, batch)
+        if self.cfg.get("prediction_export", False):
+            return {
+                "prediction": out["logits"],
+                "target": batch["y"],
+                "sample_id": batch["sample_id"],
+            }
         return out["loss"]

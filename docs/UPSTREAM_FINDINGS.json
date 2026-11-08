@@ -1,0 +1,1137 @@
+[
+  {
+    "id": "S01",
+    "classification": "confirmed bug",
+    "severity": "critical",
+    "title": "Sampler-aware scheduler sizing",
+    "affected_behavior": "Dataset-row sizing overstated sampled optimizer updates.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/tasks/utils.py",
+        "line": 123,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Dataset-row sizing overstated sampled optimizer updates.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 1,
+    "disposition": "implemented"
+  },
+  {
+    "id": "S02",
+    "classification": "confirmed bug",
+    "severity": "critical",
+    "title": "EMA optimizer update lifecycle",
+    "affected_behavior": "Microbatches advanced EMA independently of optimizer updates.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/callbacks/ema_callback.py",
+        "line": 86,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Microbatches advanced EMA independently of optimizer updates.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 1,
+    "disposition": "implemented"
+  },
+  {
+    "id": "S03",
+    "classification": "reusable improvement",
+    "severity": "critical",
+    "title": "Evaluated inference and raw resume states",
+    "affected_behavior": "Downstream train_two_view_ema wrapper carried the inference-correct checkpoint contract.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/callbacks/ema_callback.py",
+        "line": 134,
+        "dirty": true
+      },
+      {
+        "repository": "rsna-knee",
+        "revision": "c6dd63f7264edaafb8603d4a565e2ba35b837280 + pre-existing working tree",
+        "file": "scripts/train_two_view_ema.py",
+        "line": 13,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Downstream train_two_view_ema wrapper carried the inference-correct checkpoint contract.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 1,
+    "disposition": "implemented"
+  },
+  {
+    "id": "S04",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Recursive Config copy",
+    "affected_behavior": "Nested dictionaries were shared across deep copies.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/configs/base.py",
+        "line": 31,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Nested dictionaries were shared across deep copies.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 1,
+    "disposition": "implemented"
+  },
+  {
+    "id": "S05",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Scheduler-specific parameters and shared interval",
+    "affected_behavior": "Unsupported total_steps was injected into StepLR and Plateau.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/optim/__init__.py",
+        "line": 67,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Unsupported total_steps was injected into StepLR and Plateau.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 1,
+    "disposition": "implemented"
+  },
+  {
+    "id": "E01",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Exact evaluation and empty rank lifecycle",
+    "affected_behavior": "DistributedSampler padded duplicate examples; a real two-rank probe additionally reproduced Lightning skipping empty-rank epoch-end hooks.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/tasks/utils.py",
+        "line": 114,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "DistributedSampler padded duplicate examples; a real two-rank probe additionally reproduced Lightning skipping empty-rank epoch-end hooks.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_evaluation.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_evaluation.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 2,
+    "disposition": "implemented opt-in classification"
+  },
+  {
+    "id": "E02",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Explicit loss reductions",
+    "affected_behavior": "Averaging batch means ignored sample/masked-element denominators.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/tasks/base.py",
+        "line": 108,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Averaging batch means ignored sample/masked-element denominators.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_evaluation.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_evaluation.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 2,
+    "disposition": "implemented"
+  },
+  {
+    "id": "E03",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Map targets before testing diversity",
+    "affected_behavior": "Different soft targets can map to one class; chance scores concealed undefined AUC.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/metrics/utils.py",
+        "line": 42,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Different soft targets can map to one class; chance scores concealed undefined AUC.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_evaluation.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_evaluation.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 2,
+    "disposition": "implemented"
+  },
+  {
+    "id": "E04",
+    "classification": "reusable improvement",
+    "severity": "high",
+    "title": "Prediction provenance and coverage",
+    "affected_behavior": "Generic callback exports IDs, ordered targets, fold, step, weight type and dataset provenance; metric reconstruction and coverage rejection tested.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/callbacks/prediction_export.py",
+        "line": 43,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Generic callback exports IDs, ordered targets, fold, step, weight type and dataset provenance; metric reconstruction and coverage rejection tested.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_evaluation.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_evaluation.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 2,
+    "disposition": "implemented opt-in"
+  },
+  {
+    "id": "W01",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Opt-in GCP environment",
+    "affected_behavior": "Every CUDA launch previously removed LD_LIBRARY_PATH and overwrote NCCL_NET.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/environment.py",
+        "line": 15,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Every CUDA launch previously removed LD_LIBRARY_PATH and overwrote NCCL_NET.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_environment.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_environment.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 3,
+    "disposition": "implemented"
+  },
+  {
+    "id": "W02",
+    "classification": "reusable improvement",
+    "severity": "medium",
+    "title": "Seed and topology controls",
+    "affected_behavior": "Downstream experiments require explicit seed/fold and world-size contracts.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/train.py",
+        "line": 515,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Downstream experiments require explicit seed/fold and world-size contracts.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 3,
+    "disposition": "implemented; GPU topology not exercised"
+  },
+  {
+    "id": "W03",
+    "classification": "reusable improvement",
+    "severity": "medium",
+    "title": "Generic terminal curves",
+    "affected_behavior": "Removed project-specific compartment derivation, project name and workstation tracking defaults; exact logged fractional epochs take precedence.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/curves.py",
+        "line": 48,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Removed project-specific compartment derivation, project name and workstation tracking defaults; exact logged fractional epochs take precedence.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_curves.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_curves.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 3,
+    "disposition": "implemented"
+  },
+  {
+    "id": "W04",
+    "classification": "reusable improvement",
+    "severity": "medium",
+    "title": "Optional experiment and prompt provenance",
+    "affected_behavior": "Git revision plus dirty=true cannot reconstruct modified/untracked source; archives preserve bytes and registries verify immutable references.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/provenance.py",
+        "line": 61,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Git revision plus dirty=true cannot reconstruct modified/untracked source; archives preserve bytes and registries verify immutable references.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_workflow.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_workflow.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 3,
+    "disposition": "implemented scaffolding"
+  },
+  {
+    "id": "O01",
+    "classification": "reusable improvement",
+    "severity": "medium",
+    "title": "Group-balanced deterministic sampling",
+    "affected_behavior": "Group IDs generalize study balancing; wrapper epoch propagation is necessary.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/tasks/samplers.py",
+        "line": 243,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Group IDs generalize study balancing; wrapper epoch propagation is necessary.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 4,
+    "disposition": "implemented"
+  },
+  {
+    "id": "O02",
+    "classification": "optional extension",
+    "severity": "medium",
+    "title": "MIL pooling and explicit chunking",
+    "affected_behavior": "Attention, label attention, GRU and chunking have generic interfaces; chunk size affects normalization and collective counts.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/models/mil.py",
+        "line": 45,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Attention, label attention, GRU and chunking have generic interfaces; chunk size affects normalization and collective counts.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_evaluation.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_evaluation.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 4,
+    "disposition": "implemented CPU components; GPU acceptance pending"
+  },
+  {
+    "id": "O03",
+    "classification": "optional extension",
+    "severity": "medium",
+    "title": "Medical header and serial utilities",
+    "affected_behavior": "Metadata-only reads and deterministic serial ordering generalize without knee heuristics.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/toolbox/dicom.py",
+        "line": 421,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Metadata-only reads and deterministic serial ordering generalize without knee heuristics.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_workflow.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_workflow.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 4,
+    "disposition": "implemented; real modality corpus not tested"
+  },
+  {
+    "id": "O04",
+    "classification": "optional extension",
+    "severity": "medium",
+    "title": "CSN R(2+1)D and Swin checkpointing",
+    "affected_behavior": "Architecture and pretrained coverage has not been established by this migration.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/models/encoders3d.py",
+        "line": 1,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Architecture and pretrained coverage has not been established by this migration.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": null
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "Architecture shape/pretrained/GPU tests required",
+        "status": "see disposition"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 4,
+    "disposition": "deferred acceptance gate"
+  },
+  {
+    "id": "A01",
+    "classification": "reusable improvement",
+    "severity": "medium",
+    "title": "Deep review skill and bounded inventory",
+    "affected_behavior": "Dirty inventory, wrapper fixes and verification limits need a repeatable audit contract.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": ".agents/skills/template-review/SKILL.md",
+        "line": 1,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Dirty inventory, wrapper fixes and verification limits need a repeatable audit contract.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_workflow.py -q"
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_workflow.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 5,
+    "disposition": "implemented"
+  },
+  {
+    "id": "A02",
+    "classification": "already upstream",
+    "severity": "low",
+    "title": "Final checkpoint console logging MLflow and baseline MIL",
+    "affected_behavior": "Present at pinned template HEAD; not treated as new feature ports.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "src/skp/callbacks/final_checkpoint.py",
+        "line": 6,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Present at pinned template HEAD; not treated as new feature ports.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": null
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "Existing template regression suite",
+        "status": "see disposition"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 0,
+    "disposition": "retain"
+  },
+  {
+    "id": "A03",
+    "classification": "project-only",
+    "severity": "low",
+    "title": "Clinical labels cohorts routing and submissions",
+    "affected_behavior": "Knee mappings, crop/laterality policies, dashboards, submission fallback and historical registries stay downstream.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "docs/UPSTREAM_MIGRATION.md",
+        "line": 1,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Knee mappings, crop/laterality policies, dashboards, submission fallback and historical registries stay downstream.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": null
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "No generic port proposed",
+        "status": "see disposition"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 0,
+    "disposition": "retain downstream"
+  },
+  {
+    "id": "A04",
+    "classification": "hypothesis requiring verification",
+    "severity": "medium",
+    "title": "GPU NCCL and precision acceptance",
+    "affected_behavior": "CPU/gloo success does not establish NCCL, SyncBatchNorm, mixed precision or pretrained backbone equivalence.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + working tree migration",
+        "file": "docs/UPSTREAM_MIGRATION.md",
+        "line": 1,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "CPU/gloo success does not establish NCCL, SyncBatchNorm, mixed precision or pretrained backbone equivalence.",
+      "verification": "Second review: 145 template tests passed; repository-wide lint and whitespace checks passed.",
+      "reproducer": null
+    },
+    "generalization_required": "Generic contracts only; project policies remain downstream.",
+    "compatibility_impact": "See docs/UPSTREAM_MIGRATION.md; opt-in extensions and historical EMA resume guard.",
+    "acceptance_tests": [
+      {
+        "case": "Authorized bounded GPU integration required",
+        "status": "see disposition"
+      }
+    ],
+    "verification_limits": "CPU tests only; no real training/data/cloud/submission launch.",
+    "migration_order": 6,
+    "disposition": "open verification"
+  },
+  {
+    "id": "R01",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Evaluation must retain inference weights",
+    "affected_behavior": "Direct and standalone evaluation restored raw weights or failed an EMA resume guard.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + reviewed working tree",
+        "file": "src/skp/tasks/base.py",
+        "line": 205,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Direct and standalone evaluation restored raw weights or failed an EMA resume guard.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_review_regressions.py tests/test_migration_correctness.py -q",
+      "verification": "145 tests passed in the full template suite."
+    },
+    "generalization_required": "Generic training/evaluation contracts; no project dependencies.",
+    "compatibility_impact": "Only fit/resume restores raw state; standalone evaluation retains inference state.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_review_regressions.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo verified; GPU/NCCL remains pending.",
+    "migration_order": 1,
+    "disposition": "fixed in second review"
+  },
+  {
+    "id": "R02",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Export failures must reach every rank",
+    "affected_behavior": "Rank-zero serialization/write failures could strand peers in subsequent metric collectives.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + reviewed working tree",
+        "file": "src/skp/callbacks/prediction_export.py",
+        "line": 70,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Rank-zero serialization/write failures could strand peers in subsequent metric collectives.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_review_regressions.py tests/test_migration_correctness.py -q",
+      "verification": "145 tests passed in the full template suite."
+    },
+    "generalization_required": "Generic training/evaluation contracts; no project dependencies.",
+    "compatibility_impact": "Export failures are broadcast before continuing; tested with an empty rank.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_review_regressions.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo verified; GPU/NCCL remains pending.",
+    "migration_order": 1,
+    "disposition": "fixed in second review"
+  },
+  {
+    "id": "R03",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Tied parameters receive one EMA update",
+    "affected_behavior": "Aliased state entries were averaged twice, or copied over when excluding buffers.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + reviewed working tree",
+        "file": "src/skp/callbacks/ema.py",
+        "line": 108,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Aliased state entries were averaged twice, or copied over when excluding buffers.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_review_regressions.py tests/test_migration_correctness.py -q",
+      "verification": "145 tests passed in the full template suite."
+    },
+    "generalization_required": "Generic training/evaluation contracts; no project dependencies.",
+    "compatibility_impact": "Update exact aliases once and reject changed alias topology.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_review_regressions.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo verified; GPU/NCCL remains pending.",
+    "migration_order": 1,
+    "disposition": "fixed in second review"
+  },
+  {
+    "id": "R04",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Reject non-finite metric inputs before mapping",
+    "affected_behavior": "NaN targets were mapped to negative and reported as measured AUC/AVP.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + reviewed working tree",
+        "file": "src/skp/metrics/utils.py",
+        "line": 42,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "NaN targets were mapped to negative and reported as measured AUC/AVP.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_review_regressions.py tests/test_migration_correctness.py -q",
+      "verification": "145 tests passed in the full template suite."
+    },
+    "generalization_required": "Generic training/evaluation contracts; no project dependencies.",
+    "compatibility_impact": "Reject non-finite inputs explicitly.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_review_regressions.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo verified; GPU/NCCL remains pending.",
+    "migration_order": 1,
+    "disposition": "fixed in second review"
+  },
+  {
+    "id": "R05",
+    "classification": "confirmed bug",
+    "severity": "medium",
+    "title": "Honor explicit OneCycle horizon",
+    "affected_behavior": "Inferred total_steps overrode explicitly configured epochs and steps_per_epoch.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + reviewed working tree",
+        "file": "src/skp/optim/__init__.py",
+        "line": 76,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Inferred total_steps overrode explicitly configured epochs and steps_per_epoch.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_review_regressions.py tests/test_migration_correctness.py -q",
+      "verification": "145 tests passed in the full template suite."
+    },
+    "generalization_required": "Generic training/evaluation contracts; no project dependencies.",
+    "compatibility_impact": "Explicit OneCycle horizon is preserved.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_review_regressions.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo verified; GPU/NCCL remains pending.",
+    "migration_order": 1,
+    "disposition": "fixed in second review"
+  },
+  {
+    "id": "R06",
+    "classification": "confirmed bug",
+    "severity": "medium",
+    "title": "Validate initialized topology",
+    "affected_behavior": "Requested topology alone did not prove the initialized trainer matched schedule sizing.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + reviewed working tree",
+        "file": "src/skp/tasks/base.py",
+        "line": 27,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Requested topology alone did not prove the initialized trainer matched schedule sizing.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_review_regressions.py tests/test_migration_correctness.py -q",
+      "verification": "145 tests passed in the full template suite."
+    },
+    "generalization_required": "Generic training/evaluation contracts; no project dependencies.",
+    "compatibility_impact": "Reject initialized world-size mismatch before training.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_review_regressions.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo verified; GPU/NCCL remains pending.",
+    "migration_order": 1,
+    "disposition": "fixed in second review"
+  },
+  {
+    "id": "R07",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Weights-only checkpoint EMA hook",
+    "affected_behavior": "Lightning omits callback save hooks for weights-only checkpoints, saving raw weights after EMA restoration.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/tasks/base.py",
+        "line": 238,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Lightning omits callback save hooks for weights-only checkpoints, saving raw weights after EMA restoration.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_migration_correctness.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Module save hook now supplies EMA inference state for both checkpoint formats.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_migration_correctness.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 1,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "R08",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Successful EMA optimizer updates",
+    "affected_behavior": "A three-batch CPU GradScaler probe has three Lightning steps but only two successful optimizer updates.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/callbacks/ema_callback.py",
+        "line": 114,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "A three-batch CPU GradScaler probe has three Lightning steps but only two successful optimizer updates.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_ema_successful_updates.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Persist successful-update counts; scaled historical checkpoints without them require explicit migration.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_ema_successful_updates.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 1,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "R09",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Builtin loss reduction denominators",
+    "affected_behavior": "Ignored/weighted CE and masked sequence BCE/focal used batch sizes instead of true reduction counts, biasing cohort loss.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/losses/classification.py",
+        "line": 59,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Ignored/weighted CE and masked sequence BCE/focal used batch sizes instead of true reduction counts, biasing cohort loss.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_loss_denominators.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Mean reductions expose metadata; nonmean validation reductions reject explicitly; training scalar semantics unchanged.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_loss_denominators.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 2,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "R10",
+    "classification": "confirmed bug",
+    "severity": "high",
+    "title": "Combined loss metadata and global composition",
+    "affected_behavior": "Prefixed metadata was treated as a scalar loss; mixed component denominators need globally reduced component means. Duplicate output keys overwrote children.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/losses/combined.py",
+        "line": 14,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Prefixed metadata was treated as a scalar loss; mixed component denominators need globally reduced component means. Duplicate output keys overwrote children.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_loss_denominators.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Propagate denominator/reduction metadata and weighted compositions. Require unique head keys; preserve unambiguous training semantics.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_loss_denominators.py",
+        "status": "verified CPU"
+      },
+      {
+        "case": "tests/test_loss_distributed.py",
+        "status": "verified three-rank CPU gloo"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 2,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "R11",
+    "classification": "confirmed bug",
+    "severity": "medium",
+    "title": "Fractional curves and generic ETA",
+    "affected_behavior": "Five training batches at interval .5 validate at .4 and .8, not .5 and 1; epoch-wrap spans differ. A fallback metric retained a project-specific name.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/curves.py",
+        "line": 143,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Five training batches at interval .5 validate at .4 and .8, not .5 and 1; epoch-wrap spans differ. A fallback metric retained a project-specific name.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_curves.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Use floor intervals and completed updates, remove project fallback, withhold ambiguous mappings and unmatched ETA spans.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_curves.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 3,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "R12",
+    "classification": "confirmed bug",
+    "severity": "medium",
+    "title": "Unset CLI option overrides",
+    "affected_behavior": "type(None) was compared with None, causing seed, topology and encoder chunk overrides to raise TypeError.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/train.py",
+        "line": 186,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "type(None) was compared with None, causing seed, topology and encoder chunk overrides to raise TypeError.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_deep_review_cli.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Safe literal inference for unset values with plain-string fallback; existing typed overrides unchanged.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_deep_review_cli.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 1,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "R13",
+    "classification": "confirmed bug",
+    "severity": "medium",
+    "title": "Best checkpoint link boundary",
+    "affected_behavior": "An empty best path resolved to the working directory; shell commands mishandled spaces and replaced files unsafely.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": "src/skp/train.py",
+        "line": 290,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "An empty best path resolved to the working directory; shell commands mishandled spaces and replaced files unsafely.",
+      "reproducer": ".venv/bin/python -m pytest tests/test_deep_review_cli.py -q",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings."
+    },
+    "generalization_required": "Generic framework contracts only; no downstream policy or private data.",
+    "compatibility_impact": "Skip absent selections, use filesystem symlinks, and refuse to overwrite regular files.",
+    "acceptance_tests": [
+      {
+        "case": "tests/test_deep_review_cli.py",
+        "status": "verified CPU"
+      }
+    ],
+    "verification_limits": "CPU/gloo only; GPU/NCCL and actual fused GPU optimizer remain unverified.",
+    "migration_order": 1,
+    "disposition": "fixed in deep review"
+  },
+  {
+    "id": "A05",
+    "classification": "reusable improvement",
+    "severity": "medium",
+    "title": "Deep implementation review workflow",
+    "affected_behavior": "One review request should include contract tracing, adversarial integration checks, independent challenge, fixes and final verification rather than requiring repeated prompts.",
+    "source_locations": [
+      {
+        "repository": "SKPv2",
+        "revision": "bd42b9c60fc36e53cb5767be66e8646bb7480e0d + deep-reviewed working tree",
+        "file": ".agents/skills/deep-review/SKILL.md",
+        "line": 1,
+        "dirty": true
+      }
+    ],
+    "evidence": {
+      "observation": "Applied three fresh-context review scopes and cross-reviewed affected final fixes; confirmed integration defects have regressions.",
+      "verification": "Final deep-review: 168 tests passed (63.09s); repository-wide lint, whitespace and skill validation passed. Independent final cross-review found no remaining material findings.",
+      "reproducer": "Read .agents/skills/deep-review/SKILL.md and invoke $deep-review on an authorized change."
+    },
+    "generalization_required": "Domain-neutral implementation review; upstream extraction remains the separate template-review skill.",
+    "compatibility_impact": "Optional workflow; audit-only authority and existing dirty work are preserved; no promise of exhaustive detection.",
+    "acceptance_tests": [
+      {
+        "case": "skill-creator quick_validate.py .agents/skills/deep-review",
+        "status": "passed"
+      },
+      {
+        "case": "Applied migration review with fresh-context and final cross-review",
+        "status": "completed"
+      }
+    ],
+    "verification_limits": "Finite review cannot establish absence of defects. GPU/NCCL and unavailable environments remain explicit limits.",
+    "migration_order": 5,
+    "disposition": "included in prepared commit"
+  }
+]

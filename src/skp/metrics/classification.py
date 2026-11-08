@@ -47,15 +47,15 @@ class ScoreBased(BaseMetric):
     """
 
     def compute(self) -> Dict[str, torch.Tensor]:
-        p = utils.distributed_concat(_cat_state(self.p), dim=0)  # (N,C)
-        t = utils.distributed_concat(_cat_state(self.t), dim=0).cpu()
+        p = utils.gather_states(self.p)  # (N,C)
+        t = utils.gather_states(self.t).cpu()
         if self.cfg.get("metric_include_classes"):
             assert isinstance(self.cfg.metric_include_classes, list)
             p = p[:, self.cfg.metric_include_classes]
             t = t[:, self.cfg.metric_include_classes]
-        assert (
-            p.ndim == t.ndim == 2
-        ), f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        assert p.ndim == t.ndim == 2, (
+            f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        )
         # activation function is not necessarily required, for example for AUC
         if self.cfg.get("metric_activation_fn") == "sigmoid":
             p = p.sigmoid()
@@ -64,16 +64,14 @@ class ScoreBased(BaseMetric):
         p = p.cpu()
         if p.size(1) == 1:
             # Binary classification (or simple regression)
-            return {f"{self.name}_mean": self.metric_func(t, p)}
+            return utils.score_summary([self.metric_func(t, p)], self.name)
         metrics_dict = {}
         for c in range(p.shape[1]):
             # Depends on whether it is multilabel or multiclass
             # If multiclass using CE loss, p.shape[1] = num_classes and t.shape[1] = 1
             tmp_gt = t == c if t.shape[1] != p.shape[1] else t[:, c]
             metrics_dict[f"{self.name}{c}"] = self.metric_func(tmp_gt, p[:, c])
-        metrics_dict[f"{self.name}_mean"] = torch.stack(
-            [v for v in metrics_dict.values()]
-        ).mean(0)
+        metrics_dict.update(utils.score_summary(list(metrics_dict.values()), self.name))
         return metrics_dict
 
 
@@ -85,11 +83,11 @@ class ClassBased(BaseMetric):
     """
 
     def compute(self) -> Dict[str, torch.Tensor]:
-        p = utils.distributed_concat(_cat_state(self.p), dim=0)  # (N,C)
-        t = utils.distributed_concat(_cat_state(self.t), dim=0).cpu()
-        assert (
-            p.ndim == t.ndim == 2
-        ), f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        p = utils.gather_states(self.p)  # (N,C)
+        t = utils.gather_states(self.t).cpu()
+        assert p.ndim == t.ndim == 2, (
+            f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        )
         # activation function is not necessarily required
         if self.cfg.get("metric_activation_fn") == "sigmoid" or p.size(1) == 1:
             # p.size(1) = 1 implies binary classification
@@ -110,14 +108,14 @@ class AUROC(ScoreBased):
     name = "auc"
 
     def metric_func(self, t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
-        return utils.auc(t, p)
+        return utils.auc(t, p, self.cfg.get("metric_target_threshold", 0.5))
 
 
 class AVP(ScoreBased):
     name = "avp"
 
     def metric_func(self, t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
-        return utils.avp(t, p)
+        return utils.avp(t, p, self.cfg.get("metric_target_threshold", 0.5))
 
 
 class MAE(ScoreBased):
@@ -174,23 +172,21 @@ class AUROCSeq(AUROC):
             self.mask.append(rearrange(batch["mask"], "b n -> (b n)"))
 
     def compute(self) -> dict[str, torch.Tensor]:
-        p = utils.distributed_concat(_cat_state(self.p), dim=0).cpu()
-        t = utils.distributed_concat(_cat_state(self.t), dim=0).cpu()
+        p = utils.gather_states(self.p).cpu()
+        t = utils.gather_states(self.t).cpu()
         if len(self.mask) > 0:
-            mask = utils.distributed_concat(_cat_state(self.mask), dim=0).cpu()
+            mask = utils.gather_states(self.mask).cpu()
             p, t = p[mask], t[mask]
-        assert (
-            p.ndim == t.ndim == 2
-        ), f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        assert p.ndim == t.ndim == 2, (
+            f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        )
         metrics_dict = {}
         for c in range(p.shape[1]):
             # Depends on whether it is multilabel or multiclass
             # If multiclass using CE loss, p.shape[1] = num_classes and t.shape[1] = 1
             tmp_gt = t == c if t.shape[1] != p.shape[1] else t[:, c]
             metrics_dict[f"{self.name}{c}"] = self.metric_func(tmp_gt, p[:, c])
-        metrics_dict[f"{self.name}_mean"] = torch.stack(
-            [v for v in metrics_dict.values()]
-        ).mean(0)
+        metrics_dict.update(utils.score_summary(list(metrics_dict.values()), self.name))
         return metrics_dict
 
 
@@ -222,15 +218,15 @@ class ManyClassAUROC(AUROC):
             self.t.append(batch["y"].detach().float())
 
     def compute(self) -> dict[str, torch.Tensor]:
-        p = utils.distributed_concat(_cat_state(self.p), dim=0).cpu()
-        t = utils.distributed_concat(_cat_state(self.t), dim=0).cpu()
+        p = utils.gather_states(self.p).cpu()
+        t = utils.gather_states(self.t).cpu()
         if hasattr(self, "mask"):
-            mask = utils.distributed_concat(_cat_state(self.mask), dim=0).cpu()
+            mask = utils.gather_states(self.mask).cpu()
             if len(mask) > 0:
                 p, t = p[mask], t[mask]
-        assert (
-            p.ndim == t.ndim == 2
-        ), f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        assert p.ndim == t.ndim == 2, (
+            f"p.ndim [{p.ndim}] and t.ndim [{t.ndim}] must be 2"
+        )
         auc_list = []
         for c in range(p.shape[1]):
             # Depends on whether it is multilabel or multiclass
@@ -239,7 +235,7 @@ class ManyClassAUROC(AUROC):
             auc_list.append(self.metric_func(tmp_gt, p[:, c]))
 
         metrics_dict = {}
-        metrics_dict["auc_mean"] = torch.stack(auc_list).mean(0)
+        metrics_dict.update(utils.score_summary(auc_list, "auc"))
         metrics_dict["auc_min"] = torch.stack(auc_list).amin(0)
         metrics_dict["auc_max"] = torch.stack(auc_list).amax(0)
         metrics_dict["auc_25p"] = torch.stack(auc_list).quantile(0.25, dim=0)

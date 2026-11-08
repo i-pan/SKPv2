@@ -117,17 +117,15 @@ def load_dicom_series(
     if max_workers is None:
         max_workers = os.cpu_count()
 
-    files = [str(path) for path in Path(folder_path).rglob("*") if path.is_file()]
+    files = sorted(str(path) for path in Path(folder_path).rglob("*") if path.is_file())
     if not files:
         raise FileNotFoundError(f"No files found in {folder_path}")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        metadata = list(
-            executor.map(
-                lambda path: _read_metadata_worker(path, backend, pydicom, dicomsdl),
-                files,
-            )
-        )
+    metadata = _map_workers(
+        lambda path: _read_metadata_worker(path, backend, pydicom, dicomsdl),
+        files,
+        max_workers,
+    )
 
     metadata_list = [meta for meta in metadata if meta is not None]
     invalid_files = [path for path, meta in zip(files, metadata) if meta is None]
@@ -135,25 +133,40 @@ def load_dicom_series(
         raise ValueError(f"No valid DICOM headers could be read in {folder_path}.")
 
     valid_slices, invalid_files = _filter_valid_slices(metadata_list, invalid_files)
-    valid_slices = _sort_and_dedupe_slices(valid_slices, invalid_files, sort_by_instance)
+    valid_slices = _sort_and_dedupe_slices(
+        valid_slices, invalid_files, sort_by_instance
+    )
 
-    target_shape = Counter((m["Rows"], m["Columns"]) for m in valid_slices).most_common(1)[0][0]
+    target_shape = Counter((m["Rows"], m["Columns"]) for m in valid_slices).most_common(
+        1
+    )[0][0]
     worker_args = [
-        (meta, backend, pydicom, dicomsdl, rescale_pixel_values, target_shape, fix_unequal_shapes_method)
+        (
+            meta,
+            backend,
+            pydicom,
+            dicomsdl,
+            rescale_pixel_values,
+            target_shape,
+            fix_unequal_shapes_method,
+        )
         for meta in valid_slices
     ]
 
     volume = np.zeros((len(valid_slices), *target_shape), dtype=np.float32)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for idx, arr in enumerate(executor.map(_read_pixel_worker, worker_args)):
-            if arr is None:
-                raise IOError(f"Failed to read pixel data: {valid_slices[idx]['path']}")
-            volume[idx] = arr
+    for idx, arr in enumerate(
+        _map_workers(_read_pixel_worker, worker_args, max_workers)
+    ):
+        if arr is None:
+            raise IOError(f"Failed to read pixel data: {valid_slices[idx]['path']}")
+        volume[idx] = arr
 
     spacing, orientation_code, all_ipps = _series_geometry(valid_slices)
     final_code = orientation_code
     if orientation is not None:
-        volume, spacing = _reorient_array(volume, spacing, orientation_code, orientation)
+        volume, spacing = _reorient_array(
+            volume, spacing, orientation_code, orientation
+        )
         final_code = orientation
 
     return {
@@ -199,7 +212,9 @@ def _read_metadata_worker(file_path: str, backend: str, pydicom, dicomsdl):
 
 
 def _filter_valid_slices(metadata_list: list[dict], invalid_files: list[str]):
-    valid_uids = [m["SeriesInstanceUID"] for m in metadata_list if m["SeriesInstanceUID"]]
+    valid_uids = [
+        m["SeriesInstanceUID"] for m in metadata_list if m["SeriesInstanceUID"]
+    ]
     if not valid_uids:
         raise ValueError("No DICOM files had SeriesInstanceUID.")
     primary_uid = Counter(valid_uids).most_common(1)[0][0]
@@ -254,10 +269,12 @@ def _sort_and_dedupe_slices(
 
     if sort_by_instance:
         if any(meta["InstanceNumber"] is None for meta in valid_slices):
-            raise ValueError("Cannot sort by InstanceNumber when any slice is missing it.")
-        valid_slices.sort(key=lambda meta: meta["InstanceNumber"])
+            raise ValueError(
+                "Cannot sort by InstanceNumber when any slice is missing it."
+            )
+        valid_slices.sort(key=lambda meta: (meta["InstanceNumber"], meta["path"]))
     else:
-        valid_slices.sort(key=lambda meta: meta["z_location"])
+        valid_slices.sort(key=lambda meta: (meta["z_location"], meta["path"]))
 
     unique = []
     seen = set()
@@ -285,7 +302,11 @@ def _read_pixel_worker(args):
             dcm = pydicom.dcmread(meta["path"])
             arr = dcm.pixel_array
         arr = arr.astype(np.float32)
-        if rescale and meta["RescaleSlope"] is not None and meta["RescaleIntercept"] is not None:
+        if (
+            rescale
+            and meta["RescaleSlope"] is not None
+            and meta["RescaleIntercept"] is not None
+        ):
             arr = arr * float(meta["RescaleSlope"]) + float(meta["RescaleIntercept"])
         if arr.shape != target_shape:
             arr = _process_shape(arr, target_shape, fix_method)
@@ -295,11 +316,15 @@ def _read_pixel_worker(args):
         return None
 
 
-def _process_shape(img: np.ndarray, target_shape: tuple[int, int], method: str) -> np.ndarray:
+def _process_shape(
+    img: np.ndarray, target_shape: tuple[int, int], method: str
+) -> np.ndarray:
     if img.shape == target_shape:
         return img
     if method == "resize":
-        return cv2.resize(img, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_LINEAR)
+        return cv2.resize(
+            img, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_LINEAR
+        )
     if method != "crop_pad":
         raise ValueError("fix_unequal_shapes_method must be 'crop_pad' or 'resize'.")
 
@@ -335,7 +360,9 @@ def _series_geometry(valid_slices: list[dict]):
         slice_vec = np.cross(row_cos, col_cos)
 
     orientation_code = _get_orientation_code_from_vectors(slice_vec, col_cos, row_cos)
-    all_ipps = np.asarray([m["ImagePositionPatient"] for m in valid_slices], dtype=np.float32)
+    all_ipps = np.asarray(
+        [m["ImagePositionPatient"] for m in valid_slices], dtype=np.float32
+    )
     return (dz, dy, dx), orientation_code, all_ipps
 
 
@@ -382,3 +409,31 @@ def _reorient_array(image, spacing, current_code, target_code):
         if should_flip:
             image = np.flip(image, axis=axis)
     return np.ascontiguousarray(image), new_spacing
+
+
+def _map_workers(function, items, workers):
+    if workers == 0 or workers == 1:
+        return [function(item) for item in items]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        return list(executor.map(function, items))
+
+
+def inspect_dicom_headers(folder_path):
+    """Read headers only, serially and deterministically; retain unreadable paths."""
+    pydicom = _require_pydicom()
+    files = sorted(str(p) for p in Path(folder_path).rglob("*") if p.is_file())
+    headers = [_read_metadata_worker(path, "pydicom", pydicom, None) for path in files]
+    return {
+        "headers": [h for h in headers if h is not None],
+        "unreadable": [p for p, h in zip(files, headers) if h is None],
+    }
+
+
+def nearest_plane(image_orientation_patient):
+    iop = np.asarray(image_orientation_patient, dtype=float)
+    if iop.shape != (6,) or not np.isfinite(iop).all():
+        raise ValueError("Expected six finite orientation cosines")
+    normal = np.cross(iop[:3], iop[3:])
+    if np.linalg.norm(normal) < 1e-8:
+        raise ValueError("Degenerate orientation")
+    return ("sagittal", "coronal", "axial")[int(np.argmax(np.abs(normal)))]

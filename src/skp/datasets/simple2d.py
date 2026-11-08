@@ -11,7 +11,12 @@ from einops import rearrange
 from torch.utils.data import Dataset as TorchDataset
 
 from skp.configs import Config
-from skp.datasets._utils import filter_by_mode, get_collate_fn, get_transforms, read_annotations
+from skp.datasets._utils import (
+    filter_by_mode,
+    get_collate_fn,
+    get_transforms,
+    read_annotations,
+)
 
 
 class Dataset(TorchDataset):
@@ -23,6 +28,14 @@ class Dataset(TorchDataset):
 
         self.inputs = df[self.cfg.inputs].tolist()
         self.labels = df[self.cfg.targets].values
+        if cfg.get("sample_id_column"):
+            if df[cfg.sample_id_column].isna().any():
+                raise ValueError("Sample IDs must not be missing")
+            self.sample_ids = df[cfg.sample_id_column].astype(str).tolist()
+            if len(set(self.sample_ids)) != len(self.sample_ids):
+                raise ValueError("Sample IDs must be unique")
+        if cfg.get("group_id_column"):
+            self.group_ids = df[cfg.group_id_column].tolist()
         if self.cfg.get("vars"):
             self.vars = df[self.cfg.vars].values
 
@@ -73,6 +86,9 @@ class Dataset(TorchDataset):
         y = torch.tensor(y)
         x, y = x.float(), y.float()
         input_dict = {"x": x, "y": y, "index": torch.tensor(i)}
+
+        if hasattr(self, "sample_ids"):
+            input_dict["sample_id"] = self.sample_ids[i]
 
         if hasattr(self, "vars"):
             input_dict["var"] = torch.tensor(self.vars[i]).long()

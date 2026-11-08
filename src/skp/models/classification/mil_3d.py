@@ -17,6 +17,7 @@ from timm import create_model
 from skp.configs.base import Config
 from skp.models.normalization import normalize_input
 from skp.models.pooling import get_pool_layer
+from skp.models.mil import AttentionPool, GRUPool, encode_chunks
 from skp.models.utils import filter_weights_by_prefix, torch_load_weights
 
 
@@ -101,6 +102,19 @@ class Net(nn.Module):
 
         self.dropout = nn.Dropout(p=cfg.dropout)
         self.linear = nn.Linear(self.feature_dim, cfg.num_classes)
+        self.pool_mode = cfg.get("mil_pooling", "lse")
+        if self.pool_mode in {"attention", "label_attention"}:
+            self.feature_pool = AttentionPool(
+                self.feature_dim,
+                cfg.num_classes if self.pool_mode == "label_attention" else 1,
+            )
+        elif self.pool_mode == "gru":
+            self.feature_pool = GRUPool(self.feature_dim)
+        elif self.pool_mode != "lse":
+            raise ValueError(
+                "mil_pooling must be lse, attention, label_attention, or gru"
+            )
+        self.encoder_chunk_size = cfg.get("encoder_chunk_size")
         self.temperature = float(cfg.get("mil_pool_temperature", 1.0))
         self.normalize_lse = bool(cfg.get("mil_pool_normalize", True))
         if self.temperature <= 0:
@@ -146,7 +160,9 @@ class Net(nn.Module):
             height,
             width,
         )
-        features = self._pool_backbone_output(self.backbone(slices))
+        features = self._pool_backbone_output(
+            encode_chunks(self.backbone, slices, self.encoder_chunk_size)
+        )
         return features.reshape(batch_size, depth, self.feature_dim)
 
     def forward(
@@ -160,12 +176,25 @@ class Net(nn.Module):
 
         slice_features = self.extract_slice_features(batch["x"])
         slice_logits = self.linear(self.dropout(slice_features))
-        logits = log_sum_exp_pool(
-            slice_logits,
-            mask=batch.get("mask"),
-            temperature=self.temperature,
-            normalize=self.normalize_lse,
-        )
+        if self.pool_mode == "lse":
+            logits = log_sum_exp_pool(
+                slice_logits,
+                mask=batch.get("mask"),
+                temperature=self.temperature,
+                normalize=self.normalize_lse,
+            )
+        else:
+            features = self.feature_pool(slice_features, batch.get("mask"))
+            if self.pool_mode == "label_attention":
+                logits = (self.dropout(features) * self.linear.weight.unsqueeze(0)).sum(
+                    -1
+                ) + self.linear.bias
+            else:
+                logits = self.linear(
+                    self.dropout(
+                        features.squeeze(1) if features.ndim == 3 else features
+                    )
+                )
 
         out = {
             "logits": logits,

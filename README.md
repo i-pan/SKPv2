@@ -169,19 +169,16 @@ family: `torch==2.6.0+cu124` and `torchvision==0.21.0+cu124`. The uv source
 mapping uses the PyTorch CUDA 12.4 index only for those packages; everything
 else resolves from PyPI.
 
-For CUDA runs, `skp-train` applies a GCP GPU environment cleanup that forces
-NCCL onto the socket backend and removes inherited `LD_LIBRARY_PATH` before
-trainer validation. Override the socket interface with:
+CUDA runs preserve exported library paths and NCCL settings. On GCP images
+that need socket defaults, opt in explicitly:
 
 ```bash
-NCCL_SOCKET_IFNAME=ens uv run skp-train ...
+SKP_ENV_PROFILE=gcp_socket uv run skp-train ...
 ```
 
-Disable it entirely with:
-
-```bash
-GCP_NCCL_SOCKET_HACK_DISABLE=1 uv run skp-train ...
-```
+This sets `NCCL_NET=Socket` and `NCCL_SOCKET_IFNAME=ens` only when unset.
+`GCP_NCCL_SOCKET_HACK_DISABLE=1` disables the profile. No profile removes
+`LD_LIBRARY_PATH`.
 
 ## MLflow Launch Safety
 
@@ -511,3 +508,18 @@ array helpers. GPU training integration tests are not included yet.
 - Use `cfg.get(...)` only for genuinely optional settings.
 - Keep MONAI, WebDataset, pydicom, and dicomsdl optional.
 - Record shared cleanup decisions in `DECISIONS.md`.
+
+
+## Correctness and migration contracts
+
+See [the migration guide](docs/UPSTREAM_MIGRATION.md) for EMA checkpoint/resume
+semantics, exact validation and prediction export, explicit loss denominators,
+optional provenance tools, group sampling, MIL pooling/chunking and `skp-curves`.
+The repository-local `$template-review` skill audits downstream launch paths and
+produces classified migration findings without modifying source by default.
+
+For a comprehensive implementation or pre-commit review, use
+[`$deep-review`](.agents/skills/deep-review/SKILL.md). It checks contracts, consumers,
+failure paths and final verification within one request, with a fresh-context
+reviewer when available. Example: “Use $deep-review to review and fix this change,
+complete all review passes, then prepare the commit.”

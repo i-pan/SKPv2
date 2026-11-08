@@ -56,6 +56,14 @@ def _sigmoid_focal_loss(
     return loss
 
 
+def _loss_result(loss, denominator, reduction="mean"):
+    return {
+        "loss": loss,
+        "loss_denominators": {"loss": denominator},
+        "loss_reductions": {"loss": reduction},
+    }
+
+
 class BCEWithLogitsLoss(nn.BCEWithLogitsLoss):
     def __init__(self, params: Dict):
         params = copy.deepcopy(params)
@@ -72,7 +80,9 @@ class BCEWithLogitsLoss(nn.BCEWithLogitsLoss):
         else:
             p, t = out["logits"], batch["y"]
         _check_shapes_equal(p, t)
-        return {"loss": super().forward(p.float(), t.float())}
+        return _loss_result(
+            super().forward(p.float(), t.float()), t.numel(), self.reduction
+        )
 
 
 class CrossEntropyLoss(nn.CrossEntropyLoss):
@@ -83,7 +93,12 @@ class CrossEntropyLoss(nn.CrossEntropyLoss):
         p, t = out["logits"], batch["y"]
         if t.ndim == 2 and t.size(1) == 1:
             t = t[:, 0]
-        return {"loss": super().forward(p.float(), t.long())}
+        t = t.long()
+        valid = t != self.ignore_index
+        denominator = (
+            self.weight[t[valid]].sum() if self.weight is not None else valid.sum()
+        )
+        return _loss_result(super().forward(p.float(), t), denominator, self.reduction)
 
 
 """
@@ -113,7 +128,7 @@ class LabelSmoothingCrossEntropy(nn.Module):
         nll_loss = nll_loss.squeeze(1)
         smooth_loss = -logprobs.mean(dim=-1)
         loss = self.confidence * nll_loss + self.smoothing * smooth_loss
-        return {"loss": loss.mean()}
+        return _loss_result(loss.mean(), loss.numel())
 
 
 class SoftTargetCrossEntropy(nn.Module):
@@ -126,7 +141,7 @@ class SoftTargetCrossEntropy(nn.Module):
         if not torch.is_floating_point(t):
             t = t.float()
         loss = torch.sum(-t * F.log_softmax(p, dim=-1), dim=-1)
-        return {"loss": loss.mean()}
+        return _loss_result(loss.mean(), loss.numel())
 
 
 class FocalLoss(nn.Module):
@@ -146,7 +161,7 @@ class FocalLoss(nn.Module):
             p, t = out["logits"], batch["y"]
         _check_shapes_equal(p, t)
         loss = _sigmoid_focal_loss(p, t, gamma=self.gamma, alpha=self.alpha)
-        return {"loss": loss.mean()}
+        return _loss_result(loss.mean(), loss.numel())
 
 
 class L1Loss(nn.L1Loss):
@@ -156,7 +171,9 @@ class L1Loss(nn.L1Loss):
     def forward(self, out: Dict, batch: Dict) -> Dict[str, torch.Tensor]:
         p, t = out["logits"], batch["y"]
         _check_shapes_equal(p, t)
-        return {"loss": super().forward(p.float(), t.float())}
+        return _loss_result(
+            super().forward(p.float(), t.float()), t.numel(), self.reduction
+        )
 
 
 class SmoothL1Loss(nn.SmoothL1Loss):
@@ -166,7 +183,9 @@ class SmoothL1Loss(nn.SmoothL1Loss):
     def forward(self, out: Dict, batch: Dict) -> Dict[str, torch.Tensor]:
         p, t = out["logits"], batch["y"]
         _check_shapes_equal(p, t)
-        return {"loss": super().forward(p.float(), t.float())}
+        return _loss_result(
+            super().forward(p.float(), t.float()), t.numel(), self.reduction
+        )
 
 
 class L2Loss(nn.MSELoss):
@@ -176,7 +195,9 @@ class L2Loss(nn.MSELoss):
     def forward(self, out: Dict, batch: Dict) -> Dict[str, torch.Tensor]:
         p, t = out["logits"], batch["y"]
         _check_shapes_equal(p, t)
-        return {"loss": super().forward(p.float(), t.float())}
+        return _loss_result(
+            super().forward(p.float(), t.float()), t.numel(), self.reduction
+        )
 
 
 class WeightedL2Loss(nn.MSELoss):
@@ -196,7 +217,7 @@ class WeightedL2Loss(nn.MSELoss):
             .sum(1)
             .mean()
         )
-        return {"loss": loss}
+        return _loss_result(loss, p.shape[0])
 
 
 class L1L2Loss(nn.Module):
@@ -217,6 +238,7 @@ class L1L2Loss(nn.Module):
             loss_dict["l1_loss"] * self.l1_weight
             + loss_dict["l2_loss"] * self.l2_weight
         )
+        loss_dict["loss_denominators"] = {key: p.numel() for key in loss_dict}
         return loss_dict
 
 
@@ -250,4 +272,5 @@ class WeightedL1L2Loss(nn.Module):
             loss_dict["l1_loss"] * self.l1_weight
             + loss_dict["l2_loss"] * self.l2_weight
         )
+        loss_dict["loss_denominators"] = {key: p.shape[0] for key in loss_dict}
         return loss_dict

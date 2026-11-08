@@ -67,7 +67,9 @@ def build_dataloader(cfg: Config, dataset: Dataset, mode: str) -> DataLoader:
 
     dataloader_params = {}
     dataloader_params["num_workers"] = cfg.num_workers
-    dataloader_params["drop_last"] = mode == "train"
+    dataloader_params["drop_last"] = mode == "train" and cfg.get(
+        "train_drop_last", True
+    )
     dataloader_params["shuffle"] = mode == "train"
     dataloader_params["pin_memory"] = cfg.get("pin_memory", False) or False
     dataloader_params["collate_fn"] = dataset.collate_fn
@@ -79,7 +81,9 @@ def build_dataloader(cfg: Config, dataset: Dataset, mode: str) -> DataLoader:
     if mode == "train":
         dataloader_params["batch_size"] = cfg.batch_size
     else:
-        dataloader_params["batch_size"] = cfg.get("val_batch_size") or cfg.batch_size * 2
+        dataloader_params["batch_size"] = (
+            cfg.get("val_batch_size") or cfg.batch_size * 2
+        )
 
     sampler = None
     if cfg.get("sampler") and cfg.sampler != "" and mode == "train":
@@ -88,15 +92,85 @@ def build_dataloader(cfg: Config, dataset: Dataset, mode: str) -> DataLoader:
     if sampler:
         dataloader_params["shuffle"] = False
         if _is_ddp(cfg):
-            sampler = samplers.DistributedSamplerWrapper(sampler)
+            sampler = samplers.DistributedSamplerWrapper(
+                sampler, seed=cfg.get("resolved_seed", cfg.get("seed")) or 0
+            )
         print(f"Using sampler {sampler} for training ...")
         dataloader_params["sampler"] = sampler
+    elif _is_ddp(cfg) and mode != "train" and cfg.get("exact_validation", False):
+        dataloader_params["shuffle"] = False
+        dataloader_params["sampler"] = samplers.ExactDistributedEvalSampler(
+            dataset, torch.distributed.get_world_size(), torch.distributed.get_rank()
+        )
     elif _is_ddp(cfg):
         dataloader_params["shuffle"] = False
         dataloader_params["sampler"] = DistributedSampler(
-            dataset, shuffle=mode == "train"
+            dataset,
+            shuffle=mode == "train",
+            seed=cfg.get("resolved_seed", cfg.get("seed")) or 0,
         )
 
-    loader = DataLoader(dataset, **dataloader_params, worker_init_fn=worker_init_fn)
+    loader_class = (
+        ExactEvalDataLoader
+        if mode != "train" and cfg.get("exact_validation", False)
+        else DataLoader
+    )
+    loader = loader_class(dataset, **dataloader_params, worker_init_fn=worker_init_fn)
 
     return loader
+
+
+def training_batches_per_epoch(cfg, dataset=None):
+    """Size the actual sampler epoch without iterating it or requiring a process group."""
+    import math
+
+    if cfg.get("wds", False):
+        batches = cfg.require("num_iterations_per_epoch")
+    else:
+        if cfg.get("sampler"):
+            if dataset is None:
+                raise ValueError("train_dataset required for custom sampler schedule")
+            samples = len(getattr(samplers, cfg.sampler)(dataset, cfg))
+        elif cfg.get("num_iterations_per_epoch") is not None:
+            # Fixed iterations only alter training when an iteration sampler is selected.
+            raise ValueError(
+                "num_iterations_per_epoch requires a sampler or WebDataset"
+            )
+        else:
+            samples = len(dataset) if dataset is not None else cfg.n_train
+        local_samples = math.ceil(samples / cfg.get("world_size", 1))
+        batches = (
+            local_samples // cfg.batch_size
+            if cfg.get("train_drop_last", True)
+            else math.ceil(local_samples / cfg.batch_size)
+        )
+    limit = (cfg.get("args", {}) or {}).get("limit_train_batches", 1.0)
+    if limit is None:
+        limit = 1.0
+    if isinstance(limit, int):
+        batches = min(batches, limit)
+    elif 0 <= limit <= 1:
+        batches = int(batches * limit)
+    else:
+        raise ValueError("limit_train_batches must be an integer or fraction in [0, 1]")
+    if batches < 1:
+        raise ValueError("Training epoch has no batches")
+    return batches
+
+
+class ExactEvalDataLoader(DataLoader):
+    """Keep empty ranks in Lightning epoch-end hooks without evaluating fake rows.
+
+    Lightning skips the whole evaluation loop for zero-length loaders. A control
+    batch keeps hook/collective ordering aligned; classification ignores it before
+    model forward, metrics and prediction export.
+    """
+
+    def __len__(self):
+        return max(1, super().__len__())
+
+    def __iter__(self):
+        if super().__len__() == 0:
+            yield {"_skp_empty": True}
+        else:
+            yield from super().__iter__()

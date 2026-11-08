@@ -17,6 +17,7 @@ import torch.distributed
 
 from ast import literal_eval
 from importlib import import_module
+from pathlib import Path
 from lightning.pytorch import callbacks as lightning_callbacks
 from lightning.pytorch.loggers import MLFlowLogger
 from lightning.pytorch.plugins import TorchSyncBatchNorm
@@ -182,6 +183,14 @@ def _modify_limit_batches(args: argparse.Namespace) -> argparse.Namespace:
     return args
 
 
+def _parse_optional_override(value: str):
+    """Infer a previously unset CLI option without evaluating arbitrary code."""
+    try:
+        return literal_eval(value)
+    except (ValueError, SyntaxError):
+        return value
+
+
 def load_config(args, overwrite_args):
     args = _modify_limit_batches(args)
 
@@ -246,8 +255,8 @@ def load_config(args, overwrite_args):
                     # we cannot have `store_true` args, so if it is a boolean, we need
                     # to specify True after the arg flag in command line
                     cfg.__dict__[param_dict][param_key] = overwrite_args[key] == "True"
-                elif param_type is None:
-                    cfg.__dict__[param_dict][param_key] = overwrite_args[key]
+                elif param_type is type(None):
+                    cfg.__dict__[param_dict][param_key] = _parse_optional_override(overwrite_args[key])
                 else:
                     cfg.__dict__[param_dict][param_key] = param_type(
                         overwrite_args[key]
@@ -258,8 +267,8 @@ def load_config(args, overwrite_args):
             else:
                 if cfg_type is bool:
                     cfg.__dict__[key] = overwrite_args[key] == "True"
-                elif cfg_type is None:
-                    cfg.__dict__[key] = overwrite_args[key]
+                elif cfg_type is type(None):
+                    cfg.__dict__[key] = _parse_optional_override(overwrite_args[key])
                 else:
                     val = cfg_type(overwrite_args[key])
                     cfg.__dict__[key] = val
@@ -279,17 +288,23 @@ def load_config(args, overwrite_args):
 
 @rank_zero_only
 def symlink_best_model_path(trainer: lightning.Trainer) -> None:
-    best_model_path = None
     for callback in trainer.callbacks:
-        if isinstance(callback, lightning_callbacks.ModelCheckpoint):
-            best_model_path = os.path.abspath(callback.best_model_path)
-            break
-
-    if best_model_path:
-        symlink_path = os.path.join(os.path.dirname(best_model_path), "best.ckpt")
-        if os.path.exists(symlink_path):
-            _ = os.system(f"rm {symlink_path}")
-        _ = os.system(f"ln -s {best_model_path} {symlink_path}")
+        if not isinstance(callback, lightning_callbacks.ModelCheckpoint):
+            continue
+        if not callback.best_model_path:
+            continue
+        best_model_path = Path(callback.best_model_path).absolute()
+        if not best_model_path.is_file():
+            raise FileNotFoundError(best_model_path)
+        symlink_path = best_model_path.parent / "best.ckpt"
+        if symlink_path == best_model_path:
+            return
+        if symlink_path.is_symlink():
+            symlink_path.unlink()
+        elif symlink_path.exists():
+            raise FileExistsError(f"Refusing to replace checkpoint file: {symlink_path}")
+        symlink_path.symlink_to(best_model_path)
+        return
 
 
 def generate_random_run_id(num_chars: int = 8) -> str:
@@ -363,9 +378,7 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
         )
     if cfg.get("ema") and cfg.ema["on"]:
         _print_rank_zero("\n>> Using EMA ...\n")
-        callbacks.append(
-            EMACallback(**{k: v for k, v in cfg.ema.items() if k != "on"})
-        )
+        callbacks.append(EMACallback(**{k: v for k, v in cfg.ema.items() if k != "on"}))
     else:
         # don't save EMA parameters if not using
         _ = cfg.__dict__.pop("ema", None)
@@ -379,6 +392,11 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
                 log_step_interval=cfg.get("gpu_stats_log_step_interval", 5) or 5
             )
         )
+
+    if cfg.get("prediction_export", False):
+        from skp.callbacks.prediction_export import PredictionExport
+
+        callbacks.append(PredictionExport(os.path.join(save_dir, "predictions")))
 
     checkpoint_dir = os.path.join(save_dir, "checkpoints")
     save_weights_only = cfg.get("save_weights_only", False) or False
@@ -424,7 +442,8 @@ def get_trainer(cfg: Config) -> Tuple[lightning.Trainer, Config]:
 
     if cfg.args["strategy"] == "ddp":
         strategy = lightning.pytorch.strategies.DDPStrategy(
-            find_unused_parameters=cfg.get("find_unused_parameters", False) or False
+            find_unused_parameters=cfg.get("find_unused_parameters", False) or False,
+            broadcast_buffers=not cfg.get("exact_validation", False),
         )
         plugins = [TimmSyncBatchNorm()] if args_dict["sync_batchnorm"] else None
     else:
@@ -511,6 +530,28 @@ def _count_samples(shard_path_or_paths, shard_sample_suffix):
 def get_task(
     cfg: Config, compile_model: bool = False, compile_mode: str = "max-autotune"
 ) -> Tuple[lightning.LightningModule, Config]:
+    if (
+        cfg.get("required_world_size") is not None
+        and cfg.world_size != cfg.required_world_size
+    ):
+        raise ValueError("Actual world size differs from required_world_size")
+    if cfg.world_size > 1 and not str(cfg.args.get("strategy")).startswith("ddp"):
+        raise ValueError(
+            "Multi-rank training requires an explicit DDP strategy for sampler sizing"
+        )
+    if cfg.get("seed") is not None:
+        cfg.resolved_seed = cfg.seed + (cfg.get("fold") or 0) * cfg.get(
+            "fold_seed_stride", 0
+        )
+        lightning.seed_everything(cfg.resolved_seed, workers=True)
+    cfg.effective_optimizer_batch = (
+        cfg.batch_size * cfg.world_size * cfg.get("accumulate_grad_batches", 1)
+    )
+    cfg.encoder_normalization_batch = cfg.get("encoder_chunk_size") or cfg.batch_size
+    print(
+        f"Optimizer batch={cfg.effective_optimizer_batch}; encoder normalization "
+        f"batch/chunk={cfg.encoder_normalization_batch} (per rank, before SyncBN)"
+    )
     model = import_module(f"skp.models.{cfg.model}").Net(cfg)
     if model.criterion is None:
         # for some models (e.g., detection),
@@ -525,12 +566,12 @@ def get_task(
             model.set_criterion(loss)
 
     if cfg.get("auto_calculate_num_val_batches_per_gpu", False):
-        assert (
-            cfg.wds
-        ), "cfg.wds must be True for auto_calculate_num_val_batches_per_gpu"
-        assert getattr(
-            cfg, "shard_sample_suffix", None
-        ), "cfg.shard_sample_suffix must be specified if auto_calculate_num_val_batches_per_gpu is True"
+        assert cfg.wds, (
+            "cfg.wds must be True for auto_calculate_num_val_batches_per_gpu"
+        )
+        assert getattr(cfg, "shard_sample_suffix", None), (
+            "cfg.shard_sample_suffix must be specified if auto_calculate_num_val_batches_per_gpu is True"
+        )
         _print_rank_zero(
             "Automatically calculating number of validation batches per GPU ..."
         )
@@ -554,12 +595,38 @@ def get_task(
     _print_rank_zero(f"TRAIN : N={cfg.n_train}")
     _print_rank_zero(f"VAL   : N={cfg.n_val}\n")
     optimizer = get_optimizer(cfg, model)
-    scheduler = get_scheduler(cfg, optimizer)
+    scheduler = get_scheduler(cfg, optimizer, train_dataset)
     task = import_module(f"skp.tasks.{cfg.task}").Task(cfg)
 
     if compile_model:
         print(f"Compiling model with torch.compile (mode={compile_mode}) ...")
         model = torch.compile(model, mode=compile_mode)
+
+    if cfg.get("exact_validation", False):
+        if cfg.task != "classification" or cfg.get("wds", False):
+            raise ValueError(
+                "Exact validation currently supports map-style classification only"
+            )
+        if not hasattr(val_dataset, "sample_ids"):
+            raise ValueError(
+                "Exact validation requires dataset.sample_ids and batch sample_id"
+            )
+        if cfg.args.get("strategy") not in {"ddp", "auto"}:
+            raise ValueError(
+                "Exact validation requires explicit ddp or single-device auto strategy"
+            )
+        limit = cfg.args.get("limit_val_batches")
+        if limit is not None and (not isinstance(limit, float) or limit != 1.0):
+            raise ValueError("Exact validation requires a complete validation pass")
+        supported = {"AUROC", "AVP", "MAE", "MSE", "Accuracy", "Kappa", "QWK"}
+        if any(
+            name not in {f"classification.{metric}" for metric in supported}
+            for name in cfg.metrics
+        ):
+            raise ValueError(
+                "Exact validation requires an empty-rank-tested classification metric"
+            )
+        task.allow_zero_length_dataloader_with_multiple_devices = True
 
     task.set("model", model)
     task.set("datasets", [train_dataset, val_dataset])
@@ -614,7 +681,7 @@ def save_ema_weights(trainer: lightning.Trainer) -> None:
         if isinstance(callback, EMACallback):
             ema_callback = callback
         if isinstance(callback, lightning_callbacks.ModelCheckpoint):
-            last_model_path = os.path.abspath(callback.last_model_path)
+            last_model_path = os.path.join(callback.dirpath, "last.ckpt")
     if ema_callback is None or ema_callback.ema is None:
         return
     if not last_model_path:
@@ -623,7 +690,11 @@ def save_ema_weights(trainer: lightning.Trainer) -> None:
 
     save_dir = os.path.dirname(last_model_path)
     torch.save(
-        {"state_dict": ema_callback.ema.module.state_dict()},
+        {
+            "state_dict": ema_callback.ema.module.state_dict(),
+            "prediction_weights": "ema",
+            "averaging": ema_callback.settings,
+        },
         os.path.join(save_dir, "ema_weights.pt"),
     )
 
@@ -718,13 +789,17 @@ def main():
         _print_rank_zero("Profiling enabled: limiting training to 50 steps.")
         cfg.num_epochs = 1
         cfg.num_iterations_per_epoch = 50
+        if not cfg.get("wds", False):
+            cfg.sampler = "IterationBasedSampler"
         # cfg.args["limit_train_batches"] = 50
         cfg.args["limit_val_batches"] = 0
 
     cfg = generate_experiment_save_dir(cfg, run_id=args.__dict__.pop("run_id"))
     print_environment(cfg, args)
 
-    torch.set_float32_matmul_precision(cfg.get("float32_matmul_precision", "high") or "high")
+    torch.set_float32_matmul_precision(
+        cfg.get("float32_matmul_precision", "high") or "high"
+    )
 
     folds = [int(_) for _ in kfold.split(",")] if kfold else [cfg.get("fold")]
     if cfg.get("double_cv") is not None:

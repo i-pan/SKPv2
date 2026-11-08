@@ -53,9 +53,9 @@ class Task(BaseTask):
         if lamb.ndim < x.ndim:
             for _ in range(x.ndim - lamb.ndim):
                 lamb = lamb.unsqueeze(-1)
-        assert (
-            lamb.ndim == x.ndim
-        ), f"lamb has {lamb.ndim} dims whereas x has {x.ndim} dims"
+        assert lamb.ndim == x.ndim, (
+            f"lamb has {lamb.ndim} dims whereas x has {x.ndim} dims"
+        )
         # mixed input
         xmix = lamb * x + (1 - lamb) * x[permuted_indices]
         # replace original input and label with mixed
@@ -68,7 +68,11 @@ class Task(BaseTask):
             batch = self.mixup(batch)
         out = self.model(batch, return_loss=True)
         for k, v in out.items():
-            if "loss" in k:
+            if "loss" in k and k not in {
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
                 self.log(k, v)
         return out["loss"]
 
@@ -80,8 +84,12 @@ class Task(BaseTask):
         else:
             out = self.model(batch, return_loss=True)
         for k, v in out.items():
-            if "loss" in k:
-                self.val_loss[k].append(v.detach().clone())
+            if "loss" in k and k not in {
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
+                self.record_validation_loss(k, v, batch, out)
         for m in self.metrics:
             # passing output and input dicts is the most flexible
             # then the metric can be customized to get the keys they need
@@ -91,9 +99,9 @@ class Task(BaseTask):
     def on_validation_epoch_start(self) -> None:
         if self.cfg.get("use_sliding_window_inference", False):
             sliding_window_inference = _require_monai_sliding_window()
-            assert (
-                self.cfg.val_batch_size == 1
-            ), "val_batch_size must be 1 for sliding window inference"
+            assert self.cfg.val_batch_size == 1, (
+                "val_batch_size must be 1 for sliding window inference"
+            )
             wrapped_model = ModelWrapper(self.model)
             self.swi_inferer = partial(
                 sliding_window_inference,

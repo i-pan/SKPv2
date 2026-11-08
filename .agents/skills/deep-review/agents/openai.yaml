@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Review"
+  short_description: "Review contracts, failure paths, and final readiness"
+  default_prompt: "Use $deep-review to review this change thoroughly, verify its integration and failure paths, and report readiness with evidence and limits."

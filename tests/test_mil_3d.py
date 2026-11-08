@@ -142,3 +142,23 @@ def test_mil_model_constructs_with_timm_backbone():
 
     assert out["logits"].shape == (1, 2)
     assert out["slice_logits"].shape == (1, 2, 2)
+
+
+@pytest.mark.parametrize("pool", ["attention", "label_attention", "gru"])
+def test_optional_mil_modes_and_chunking(monkeypatch, pool):
+    monkeypatch.setattr(
+        mil_3d, "create_model", lambda *a, **kw: TinyBackbone(kw["in_chans"])
+    )
+    model = mil_3d.Net(_cfg(mil_pooling=pool, encoder_chunk_size=3)).eval()
+    batch = {
+        "x": torch.rand(2, 2, 5, 8, 8),
+        "mask": torch.tensor([[1, 1, 1, 0, 0], [1, 1, 1, 1, 1]], dtype=torch.bool),
+    }
+    chunked = model(batch)
+    model.encoder_chunk_size = None
+    full = model(batch)
+    assert chunked["logits"].shape == (2, 3)
+    assert chunked["slice_logits"].shape == (2, 5, 3)
+    torch.testing.assert_close(chunked["logits"], full["logits"], rtol=1e-5, atol=1e-6)
+    chunked["logits"].sum().backward()
+    assert model.linear.weight.grad is not None

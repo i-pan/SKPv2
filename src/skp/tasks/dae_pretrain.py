@@ -71,9 +71,7 @@ class Task(BaseTask):
                 mode="trilinear",
                 align_corners=False,
             )
-            x = F.interpolate(
-                x, size=(D, H, W), mode="trilinear", align_corners=False
-            )
+            x = F.interpolate(x, size=(D, H, W), mode="trilinear", align_corners=False)
 
         # 2. Noise
         noise_std = getattr(self.cfg, "dae_noise", 0.1)
@@ -95,7 +93,12 @@ class Task(BaseTask):
             x_corrupted, target=x_orig, roi_mask=batch.get("roi_mask", None)
         )
         for k, v in out.items():
-            if "loss" in k and k != "loss_per_sample":
+            if "loss" in k and k not in {
+                "loss_per_sample",
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
                 self.log(k, v, prog_bar=k == "loss")
 
         log_interval = self.cfg.get("log_training_examples_interval")
@@ -165,8 +168,13 @@ class Task(BaseTask):
             x_corrupted, target=x_orig, roi_mask=batch.get("roi_mask", None)
         )
         for k, v in out.items():
-            if "loss" in k and k != "loss_per_sample":
-                self.val_loss[k].append(v.detach().clone())
+            if "loss" in k and k not in {
+                "loss_per_sample",
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
+                self.record_validation_loss(k, v, batch, out)
         for m in self.metrics:
             # passing output and input dicts is the most flexible
             # then the metric can be customized to get the keys they need

@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from copy import deepcopy
 
 
 class Config(SimpleNamespace):
@@ -28,4 +29,8 @@ class Config(SimpleNamespace):
         return "\n".join(string)
 
     def __deepcopy__(self, memo=None):
-        return Config(**self.to_dict())
+        memo = {} if memo is None else memo
+        result = type(self)()
+        memo[id(self)] = result
+        result.__dict__.update(deepcopy(self.__dict__, memo))
+        return result

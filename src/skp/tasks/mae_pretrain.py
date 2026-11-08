@@ -73,7 +73,12 @@ class Task(BaseTask):
             mask_roi_only=self.cfg.mask_roi_only or False,
         )
         for k, v in out.items():
-            if "loss" in k and k != "loss_per_sample":
+            if "loss" in k and k not in {
+                "loss_per_sample",
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
                 self.log(k, v, prog_bar=k == "loss")
             elif k == "slice_mask_ratio":
                 self.log(k, v, prog_bar=False)
@@ -174,8 +179,13 @@ class Task(BaseTask):
             ignore_background=self.cfg.ignore_background or False,
         )
         for k, v in out.items():
-            if "loss" in k and k != "loss_per_sample":
-                self.val_loss[k].append(v.detach().clone())
+            if "loss" in k and k not in {
+                "loss_per_sample",
+                "loss_denominators",
+                "loss_compositions",
+                "loss_reductions",
+            }:
+                self.record_validation_loss(k, v, batch, out)
         for m in self.metrics:
             # passing output and input dicts is the most flexible
             # then the metric can be customized to get the keys they need
