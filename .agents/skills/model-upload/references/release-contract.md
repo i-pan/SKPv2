@@ -8,14 +8,18 @@ claim that every provider mandates this exact directory structure.
 Use `README.md` for both HF and private-local releases. Include applicable fields;
 mark missing evidence as unknown/not measured, rather than inventing values.
 
-Place source-code and reproduction-guide links directly below the title or short
-overview, before installation/inference examples. Link experiment history and
+Target the card primarily at inference users. Lead with a brief overview and
+compact source-code/reproduction links, then installation and runnable inference,
+ensemble choices, output interpretation, performance and limitations. Place
+detailed training, fine-tuning and provenance later, with a visible section link
+near the top. Do not require readers to traverse a training recipe to run a model.
+Link experiment history and
 decision records there when available. For private releases, use authorized
 internal references or bundled documentation; explicitly state when source is
 unavailable rather than inventing a public repository.
 
-Include a dedicated, model-specific **Training procedure** section before
-inference examples. For multi-stage pipelines, explain each released component's
+Include a dedicated, model-specific **Training procedure** section after the
+inference/evaluation material. For multi-stage pipelines, explain each released component's
 training and dependencies, not only the overall dataset. Cover inputs and
 preprocessing, targets, split/leakage controls, initialization and freezing,
 sampling, loss, optimizer/LR schedule, batch size and accumulation, epoch budget
@@ -27,8 +31,9 @@ commands; links supplement rather than replace the on-card training explanation.
 Do not mix discarded ablation recipes into the final model's training account.
 
 Check the actual rendered or retrieved card before declaring documentation
-complete: can a new reader immediately find the training code and understand
-how these specific weights were trained? A heading or keyword check alone does
+complete: can an inference user quickly install and run the model and interpret
+its outputs, while a researcher can easily find the training code and recipe?
+A heading or keyword check alone does
 not establish this. For card-only revisions, keep file inventories/checksums and
 delivery receipts consistent without unnecessarily rebuilding unchanged weights.
 

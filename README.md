@@ -537,8 +537,8 @@ For model release preparation, use
 publication or private-local packaging and stops for explicit review and approval
 before making changes. After approval, it covers checkpoint provenance, payload
 inventories, licensing, inference/fine-tuning access, and verification. Model
-cards prominently link training code and reproduction instructions and describe
-the selected training procedure before inference examples. Preparation approval
+cards lead with inference instructions and compact source/reproduction links;
+detailed training and fine-tuning remain easy to find later. Preparation approval
 does not authorize publication; private-local releases have the same approval gate.
 
 ## Best and final validation predictions

@@ -18,8 +18,9 @@ account/names/visibility alone are not execution approval.
    for them; put non-Hub dataset links in prose. Do not advertise Transformers or
    hosted inference support for a custom runtime that does not implement it.
    Verify that source/reproduction links are prominent near the top and that
-   the model-specific training procedure precedes inference examples, as defined
-   in the shared release contract; do not bury them in provenance boilerplate.
+   installation/inference precedes the detailed training procedure, as defined
+   in the shared release contract. Keep training discoverable via a section link;
+   do not bury source links in provenance boilerplate.
    Link companion models and public source. Local-only cards need not claim a
    public license or public source repository.
 4. Upload only the validated inventory. Use `upload_folder`/CLI for normal uploads;

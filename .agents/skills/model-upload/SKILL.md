@@ -75,8 +75,10 @@ current provider requirements; verify mutable API/limit details before use.
    specifically required and authorized. Inspect actual packaged wheel/archive
    contents, not merely their filenames. Do not recursively upload a workspace.
 4. Write the model card and release manifest from observed evidence. Include
-   prominent source/reproduction links and a model-specific training procedure
-   before inference examples, following the shared release contract. A buried
+   compact source/reproduction links near the top and an inference-first layout:
+   installation, usage, presets, outputs, performance and limitations precede
+   detailed training, fine-tuning and provenance. Keep the model-specific training
+   procedure easy to find through a section link. A buried
    provenance link or dataset-only summary is not sufficient training documentation.
    Include single-checkpoint loading and fine-tuning instructions, not just ensemble
    inference. Identify intentional freezing, input/target contract, and whether

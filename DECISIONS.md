@@ -258,3 +258,10 @@ separate from this file.
 - Copy the reusable skill and its references/UI metadata without project-specific
   weights, repository names, data paths or publication scripts. Model publication
   remains a separate authorized action, not a consequence of installing the skill.
+
+## 2026-11-08: Inference-first model cards supersede training-first placement
+
+- Keep compact source/reproduction links near the overview, then prioritize
+  installation, inference, ensemble choices, outputs, performance and limitations.
+  Move detailed training/fine-tuning/provenance later with an accessible section
+  link. Retain training completeness and the existing proposal/approval gate.
