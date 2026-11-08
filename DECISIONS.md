@@ -8,6 +8,17 @@ SKPv2 must keep their modeling, dataset, evaluation, and release decisions in
 `docs/EXPERIMENT_HISTORY.md`. Those project documents are intentionally
 separate from this file.
 
+## 2026-11-08
+
+- Added the repository-local training-monitor skill with full and fast modes,
+  matched-epoch ablation reporting, schedule-aware budget comparisons, and a
+  read-only Linux resource collector. Fast mode avoids process-tree/PSS and GPU
+  process-attribution scans and bounds log reads.
+- Generalized the downstream monitoring reference to the template's MLflow
+  server and artifact conventions. Dataset-specific metrics, paths, and sampler
+  assumptions remain in downstream projects; monitoring never changes jobs or
+  weakens the template's MLflow launch contract.
+
 ## 2026-07-27
 
 - Added a reusable slice-wise 3D multiple-instance learning classifier for

@@ -113,6 +113,32 @@ Root `AGENTS.md` provides the corresponding agent workflow: bootstrap an empty
 directory, inspect the framework and project data comprehensively, preserve
 these documentation scopes, validate MLflow before launch, and verify changes.
 
+## Training monitoring skill
+
+The template includes a repository-local agent skill at
+[`.agents/skills/training-monitor/SKILL.md`](.agents/skills/training-monitor/SKILL.md),
+so cloned projects inherit the monitoring workflow and its standard-library
+snapshot helper.
+
+- `$training-monitor`: full validation trends, matched-budget ablation comparisons,
+  iteration/epoch/validation timing, GPU and host/job RAM, and ETAs.
+- `$training-monitor fast`: latest results and matched-epoch baseline delta,
+  current progress, GPU/host RAM, and qualified ETAs using existing timings.
+  Skips process-memory scans and detailed timing reconstruction.
+
+Monitoring is read-only and does not launch, restart, or alter training. The
+helper can also run directly on Linux:
+
+```bash
+python .agents/skills/training-monitor/scripts/snapshot.py --fast \
+  --service <user-service> --log <training-log>
+```
+
+Use `--pid <training-launcher-pid>` when training lives outside the controller's
+process tree. Without `--fast`, the helper includes process-tree PSS and GPU
+process attribution. The skill reads project-specific metrics and paths from
+existing records rather than imposing a particular dataset or primary metric.
+
 ## Environment Strategy
 
 Each experiment should own its own uv environment and lockfile. Start from the
