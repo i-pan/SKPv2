@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Cleanup"
+  short_description: "Propose checkpoint cleanup with explicit approval"
+  default_prompt: "Use $experiment-cleanup to audit experiment storage, results, reproduction evidence and deployment dependencies, then propose cleanup without deleting or changing artifacts."

@@ -8,6 +8,23 @@ SKPv2 must keep their modeling, dataset, evaluation, and release decisions in
 `docs/EXPERIMENT_HISTORY.md`. Those project documents are intentionally
 separate from this file.
 
+## 2026-11-08: Experiment cleanup proposals
+
+- Add a reusable experiment-cleanup skill that prioritizes checkpoint storage,
+  reconciles experiment results with final deployment and queued consumers, and
+  preserves inexpensive metadata and reproduction evidence.
+- Audits produce versioned proposals and exact artifact manifests. No deletion,
+  movement, state stripping or other artifact changes occur without explicit
+  user approval of the concrete scope; approved actions require fresh identity
+  and dependency checks and an append-only receipt.
+- Distinguish approximate reruns from identical checkpoint recovery and exact
+  training continuation. Insufficient config/input evidence and ambiguous deployment dependencies
+  remain holds, never implicit permission to remove artifacts.
+- Default recovery standard is approximate reproduction from the actual preserved
+  config plus effective settings, data versions and initialization identities.
+  Exact historical code/dirty snapshots are useful but not required; their absence
+  alone is not a cleanup blocker. Explicit artifact-removal approval is unchanged.
+
 ## 2026-11-08: Deep-review integration corrections
 
 - Count successful optimizer steps for EMA using optimizer post-step hooks;

@@ -523,3 +523,10 @@ For a comprehensive implementation or pre-commit review, use
 failure paths and final verification within one request, with a fresh-context
 reviewer when available. Example: “Use $deep-review to review and fix this change,
 complete all review passes, then prepare the commit.”
+
+For storage reclamation, use
+[`$experiment-cleanup`](.agents/skills/experiment-cleanup/SKILL.md). It inventories
+experiments, results and deployment dependencies, then proposes checkpoint removal
+while preserving configs sufficient for approximate reproduction; exact historical
+code is not required. No experiment artifacts are changed
+without explicit approval of the versioned proposal and selected actions.
