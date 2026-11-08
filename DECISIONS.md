@@ -245,3 +245,16 @@ separate from this file.
 - Keep export opt-in for compatible tasks. Disable tracker logging during these
   evaluations to avoid overwriting training history, and use checkpoint inference
   weights without reapplying EMA. Preserve existing per-evaluation archives.
+
+## 2026-11-08: Reusable model-upload skill
+
+- Include `.agents/skills/model-upload` so downstream clones inherit proposal-first
+  model release preparation for Hugging Face or private-local storage. Preserve
+  explicit approval boundaries for preparation, publication and local delivery.
+- Require prominent source/reproduction links and a model-specific training
+  procedure before inference examples, with configs, stage dependencies,
+  optimization, selection and state provenance. A dataset summary and buried
+  source link are insufficient. Keep card-only revisions and inventories aligned.
+- Copy the reusable skill and its references/UI metadata without project-specific
+  weights, repository names, data paths or publication scripts. Model publication
+  remains a separate authorized action, not a consequence of installing the skill.

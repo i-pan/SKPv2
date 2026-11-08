@@ -1,0 +1,4 @@
+interface:
+  display_name: "Model Upload"
+  short_description: "Propose model releases and wait for explicit approval"
+  default_prompt: "Use $model-upload to propose a Hugging Face or private-local model release, then stop for my review and explicit approval before executing."

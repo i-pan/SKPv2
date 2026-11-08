@@ -532,6 +532,15 @@ sufficient for approximate reproduction; exact historical
 code is not required. No experiment artifacts are changed
 without explicit approval of the versioned proposal and selected actions.
 
+For model release preparation, use
+[`$model-upload`](.agents/skills/model-upload/SKILL.md). It proposes Hugging Face
+publication or private-local packaging and stops for explicit review and approval
+before making changes. After approval, it covers checkpoint provenance, payload
+inventories, licensing, inference/fine-tuning access, and verification. Model
+cards prominently link training code and reproduction instructions and describe
+the selected training procedure before inference examples. Preparation approval
+does not authorize publication; private-local releases have the same approval gate.
+
 ## Best and final validation predictions
 
 With `cfg.prediction_export=True`, compatible classification tasks save per-evaluation
