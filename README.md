@@ -531,3 +531,20 @@ keep set, and proposes removing the other checkpoints while preserving configs
 sufficient for approximate reproduction; exact historical
 code is not required. No experiment artifacts are changed
 without explicit approval of the versioned proposal and selected actions.
+
+## Best and final validation predictions
+
+With `cfg.prediction_export=True`, compatible classification tasks save per-evaluation
+archives and, after fit, evaluate both saved checkpoints into
+`<split>/predictions/validation_predictions_best.npz` and
+`validation_predictions_final.npz`. Final means the latest saved training endpoint,
+including an endpoint outside the normal validation cadence. Both files are written
+even when best and final coincide. This adds two validation passes after training.
+
+Archives contain sample IDs, predictions, targets, and embedded metadata identifying
+checkpoint role/path, epoch, completed epochs, optimizer step, weight variant,
+target order and data provenance. Exports retain the validated checkpoint's raw/EMA
+weights and disable tracker logging during re-evaluation to preserve training history.
+Export failure prevents the run from being reported as successfully exported; missing
+checkpoints are errors. The feature remains opt-in for tasks/datasets satisfying the
+existing prediction-export contract.

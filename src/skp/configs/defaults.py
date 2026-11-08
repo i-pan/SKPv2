@@ -7,7 +7,7 @@ CONFIG_FIELD_DOCS = {
         "fold_seed_stride": "Add fold * stride to seed (default zero).",
         "required_world_size": "Optional fail-closed topology requirement.",
         "exact_validation": "Opt-in exact map-style classification evaluation; requires stable sample IDs.",
-        "prediction_export": "Opt-in atomic validation NPZ export; requires target_order and data_provenance.",
+        "prediction_export": "Opt-in atomic validation NPZ export each evaluation plus best and final/latest checkpoint exports after fit; requires target_order and data_provenance.",
         "metric_target_threshold": "Map soft classification targets before determining metric validity.",
         "save_dir": "Root directory for experiment outputs before config/run/fold subdirectories are appended.",
         "project": "Required MLflow experiment name. Set explicitly in each experiment config.",

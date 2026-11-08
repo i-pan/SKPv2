@@ -48,6 +48,7 @@ class PredictionExport(Callback):
     def __init__(self, directory):
         self.directory = Path(directory)
         self.rows = []
+        self.checkpoint_context = None
 
     def on_validation_epoch_start(self, trainer, pl_module):
         self.rows = []
@@ -102,9 +103,15 @@ class PredictionExport(Callback):
                     ),
                     data_provenance=pl_module.cfg.require("data_provenance"),
                 )
+                if self.checkpoint_context is not None:
+                    metadata.update(self.checkpoint_context)
+                filename = (
+                    f"validation_predictions_{self.checkpoint_context['checkpoint_role']}.npz"
+                    if self.checkpoint_context is not None
+                    else f"epoch{trainer.current_epoch}-step{trainer.global_step}.npz"
+                )
                 write_predictions(
-                    self.directory
-                    / f"epoch{trainer.current_epoch}-step{trainer.global_step}.npz",
+                    self.directory / filename,
                     ids,
                     np.concatenate([r[1] for r in rows]),
                     np.concatenate([r[2] for r in rows]),
@@ -118,3 +125,60 @@ class PredictionExport(Callback):
         if failure[0] is not None:
             raise RuntimeError(f"Prediction export failed: {failure[0]}")
         self.rows = []
+
+
+def export_checkpoint_predictions(trainer):
+    """Re-evaluate best and latest checkpoints after fit, including unvalidated endpoints.
+
+    Run on every rank. Disable tracker logging so checkpoint re-evaluation cannot
+    overwrite training history; embedded metadata identifies the loaded weights.
+    """
+    from lightning.pytorch.callbacks import ModelCheckpoint
+    from skp.callbacks.final_checkpoint import FinalCheckpointCallback
+
+    exporter = next(
+        (c for c in trainer.callbacks if isinstance(c, PredictionExport)), None
+    )
+    if exporter is None:
+        return
+    best = next(
+        (
+            c.best_model_path
+            for c in trainer.callbacks
+            if isinstance(c, ModelCheckpoint) and c.best_model_path
+        ),
+        None,
+    )
+    latest = next(
+        (c.path for c in trainer.callbacks if isinstance(c, FinalCheckpointCallback)),
+        None,
+    )
+    if not best or latest is None:
+        raise RuntimeError(
+            "Prediction export requires both best and latest saved checkpoints"
+        )
+    callbacks, loggers = trainer.callbacks, trainer.loggers
+    task = trainer.lightning_module
+    try:
+        trainer.callbacks = [exporter]
+        trainer.loggers = []
+        for role, path in [("best", best), ("final", latest)]:
+            path = Path(path).resolve(strict=True)
+            checkpoint = torch.load(
+                path, map_location="cpu", mmap=True, weights_only=False
+            )
+            exporter.checkpoint_context = dict(
+                checkpoint_role=role,
+                checkpoint=str(path),
+                epoch=int(checkpoint["epoch"]),
+                completed_epochs=int(checkpoint["epoch"]) + 1,
+                step=int(checkpoint["global_step"]),
+                prediction_weights=checkpoint.get("prediction_weights", "raw"),
+                final_definition="latest saved checkpoint",
+            )
+            del checkpoint
+            trainer.validate(task, ckpt_path=str(path), verbose=False)
+    finally:
+        exporter.checkpoint_context = None
+        trainer.callbacks = callbacks
+        trainer.loggers = loggers

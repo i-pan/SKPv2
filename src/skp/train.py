@@ -731,6 +731,9 @@ def after_fit(trainer: lightning.Trainer) -> None:
     """Run common post-fit bookkeeping for every training mode."""
     symlink_best_model_path(trainer)
     save_ema_weights(trainer)
+    from skp.callbacks.prediction_export import export_checkpoint_predictions
+
+    export_checkpoint_predictions(trainer)
 
 
 def main():

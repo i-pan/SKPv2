@@ -235,3 +235,13 @@ separate from this file.
   both full and fast modes. Final is the default comparison; best is secondary
   because validation-based checkpoint selection can bias comparisons. Missing
   final evaluations are explicit, and reporting does not alter active training.
+
+## Best and final/latest prediction exports
+
+- Prediction export now evaluates both saved best and latest checkpoints after fit
+  and writes distinct, atomic NPZ files with checkpoint-role/epoch/step metadata.
+  This covers final epochs outside the scheduled validation cadence and applies
+  through the shared after-fit hook to ordinary runs and runners.
+- Keep export opt-in for compatible tasks. Disable tracker logging during these
+  evaluations to avoid overwriting training history, and use checkpoint inference
+  weights without reapplying EMA. Preserve existing per-evaluation archives.
