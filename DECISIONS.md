@@ -228,3 +228,10 @@ separate from this file.
 - The skill passed structural validation and an isolated independent review trial
   that found an integration regression despite passing tests, preserved source,
   and distinguished an undocumented contract from a confirmed defect.
+
+## Training monitor: final checkpoint preference
+
+- Completed-run reports show final and best metrics with epoch identifiers in
+  both full and fast modes. Final is the default comparison; best is secondary
+  because validation-based checkpoint selection can bias comparisons. Missing
+  final evaluations are explicit, and reporting does not alter active training.

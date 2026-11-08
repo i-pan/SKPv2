@@ -48,6 +48,16 @@ Capture current per-GPU allocated memory/total capacity and utilization. Disting
 
 Record snapshot time and log/metric freshness. If evidence suggests a stall, take a second short observation to check progress and process state before calling it stalled. Do not wait for the next epoch just to answer an update request.
 
+## Completed runs: final and best checkpoints
+
+Whenever a completed run is displayed, in full or fast mode, report **both final and best checkpoint metrics**, with their epoch/step identifiers. Lead with final results and use final checkpoints as the default basis for completed-run rankings and conclusions: the user prefers final checkpoints to avoid additional validation-driven checkpoint-selection bias. Best results are secondary context, not a replacement for final results. If both coincide, explicitly label the value as final and best.
+
+Use a compact table such as `Run | Final metric (epoch) | Best metric (epoch)`. Determine best using the configured primary metric and optimization direction. Report relevant secondary metrics from those same two evaluations, rather than independently cherry-picking each metric's best epoch.
+
+Final means the checkpoint at the actual training endpoint. Verify the planned budget and termination status. If the endpoint was not evaluated, report final metrics as unavailable and identify the latest evaluated checkpoint separately; do not relabel it final. Label early-stopped, interrupted, or failed runs accordingly instead of implying planned-budget completion. Distinguish logged final-epoch metrics from verified saved-checkpoint availability, and identify EMA or other weight variants where relevant. Predictions exported from the best checkpoint do not establish final-checkpoint performance.
+
+Retrieve final and best records with small read-only queries, including in fast mode. Missing metrics remain unavailable; monitoring does not authorize new inference, checkpoint changes, or alterations to training/checkpoint selection. This preference changes reporting, not the active experiment protocol.
+
 ## Compare ablations fairly
 
 When monitoring an ablation, report matched-budget comparisons against its designated baseline and relevant completed or active arms, alongside each run's latest result and best-so-far. Retrieve historical evaluations from the baseline; do not compare a new arm's early epoch only against another arm's final or best checkpoint.
