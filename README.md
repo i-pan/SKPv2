@@ -526,7 +526,8 @@ complete all review passes, then prepare the commit.”
 
 For storage reclamation, use
 [`$experiment-cleanup`](.agents/skills/experiment-cleanup/SKILL.md). It inventories
-experiments, results and deployment dependencies, then proposes checkpoint removal
-while preserving configs sufficient for approximate reproduction; exact historical
+experiments, results and deployment dependencies, establishes a small justified
+keep set, and proposes removing the other checkpoints while preserving configs
+sufficient for approximate reproduction; exact historical
 code is not required. No experiment artifacts are changed
 without explicit approval of the versioned proposal and selected actions.

@@ -5,11 +5,13 @@ description: Audit experiment storage, results, reproducibility and deployment d
 
 # Experiment cleanup
 
-Recover storage primarily from obsolete checkpoints while preserving useful
-results and enough configuration evidence to reproduce their experiments approximately.
-Exact historical code and bitwise-identical weights are not required by default. The default output
-is a proposal, never cleanup. Age or a low score alone does not establish that a
-checkpoint is disposable.
+Build a small, justified checkpoint keep set, then propose removing the rest.
+Assume most exploratory experiments will never be rerun. The burden of evidence
+is on retaining large weights, not proving each experiment obsolete. Preserve
+inexpensive configs, results and history even when its checkpoints go.
+Approximate reproduction from a sufficient config is enough; exact historical
+code and identical weights are not required. This is a proposal policy, never
+authorization to delete anything.
 
 ## Authority and boundaries
 
@@ -58,37 +60,66 @@ Do not assume `.pt`, `.pth` or `.ckpt` identifies a disposable checkpoint. A lar
 file's role must be established; datasets and pretrained inputs are outside the
 default cleanup scope.
 
-## Protect deployment and future work
+## Establish the minimal keep set
 
-Establish the latest final deployment plan from explicit user decisions and
-versioned inference/ensemble/package manifests, not solely the highest score.
-Trace the dependency graph to exact runs, folds, seeds and checkpoint variants,
-including EMA/raw, best/final, ensembles, teachers, distillation, calibration,
-quantization, export, resume sources, rollback and queued jobs. Check active
-processes/controllers where accessible; a stale registry status is insufficient.
+Start from the user's current final selection and actual future needs. Identify
+exact model members, folds, seeds and weight variants required for deployment,
+plus helper models and genuinely required dependencies. Verify active jobs or
+concretely committed queued work against controllers/processes where accessible.
+A hypothetical future use is not an active dependency.
 
-Protect active or queued consumers, deployed/selected artifacts and their
-required source dependencies, rollback commitments, unique useful baselines,
-and explicitly pinned runs. If deployment plans conflict or are absent, mark
-potentially relevant artifacts **hold** and ask a targeted question while
-continuing independent inventory. Do not infer that one strong fold replaces
-all folds, or that a compiled export makes its source checkpoint unnecessary.
+Require a present-tense reason for every retained checkpoint:
 
-Compare results only under matching targets, label/split/data versions, cohorts,
-metric definitions/directions and training budgets. Include experiment specifics:
-architecture, preprocessing, loss, sampler, seed/fold, precision, batch/chunk and
-EMA choices. Preserve informative ablations, complementary ensemble members and
-valuable failures; distinguish poor performance from invalid evaluation.
+- needed by the current final model or deployment pipeline;
+- needed by a verified active job or concretely committed next action;
+- an explicitly requested rollback version or currently reaffirmed pin;
+- one of a small, named set of reference/posterity models with distinct value.
 
-## Propose candidates with recovery evidence
+Propose a few reference models at most by default, with a reason for each;
+do not retain every architecture, ablation, failure or former best. Preserve
+those experiments' scientific information through configs, metrics, predictions
+when small, logs and decision history instead. Ask about a larger reference
+collection only if a concrete project need supports it.
 
-Assign each artifact **keep**, **hold**, or **propose-remove** with evidence.
-Prioritize large redundant intermediate checkpoints and completed, superseded
-runs with no consumers and adequate reproduction records. Retain inexpensive
-metadata by default: configs, source evidence, manifests, launch commands,
-dependency locks, metrics, logs, predictions when small, and decision history.
-Report sizeable metadata separately; do not silently bundle it into checkpoint
-removal. Do not propose recursive deletion of a run directory to save its weights.
+Historical `selected`, `exported`, `pending` or `running` labels, an old
+"checkpoints retained" note, recent experiment numbers, and old package/script
+references are not automatic retention reasons. Reconcile them with the latest
+user decision. Distinguish a historical record of preservation from a current
+instruction to keep an artifact. If an explicit standing pin genuinely conflicts
+with the current selection, isolate that conflict for clarification; do not carry
+forward every old pin as a permanent exemption.
+
+For each kept model, choose the minimal useful artifacts. Required ensemble
+folds remain distinct, but keeping a final inference model does not automatically
+justify best/raw/final/EMA duplicates, every export copy, or optimizer state.
+Retain full training state only for an identified continuation need or explicit
+preference. Where an export suffices, assess whether its source weights are
+actually needed for rebuilding or changing the supported deployment. Propose
+state stripping or replacement separately when needed; never perform it in an
+audit. Do not count training lineage or old evaluation inputs as live dependencies.
+
+If the final selection is unclear, infer a provisional shortlist from current
+evidence and ask one focused clarification. Hold only artifacts directly affected
+by that uncertainty. Continue proposing cleanup for the rest; do not protect all
+historical families or all recent runs while waiting.
+
+Compare results under matching targets, data/split/label versions, cohorts,
+metrics and budgets when choosing reference models. Distinguish poor performance
+from invalid evaluation, without assuming either needs its weights preserved.
+
+## Propose cleanup outside the keep set
+
+Assign each artifact **keep**, **hold**, or **propose-remove**. Every keep needs
+a concrete retention reason; every hold needs a specific unresolved question and
+a condition that would resolve it. Once scope and role are established, propose
+removing checkpoints outside that justified keep/hold set. An explicit historical
+rejection or proof of inferiority is not required. Do not relegate most unselected
+runs to an optional list solely because they were never formally marked rejected.
+
+Retain inexpensive metadata by default: actual configs/effective settings,
+source evidence when available, manifests, commands, dependency locks, metrics,
+logs, small predictions and decision history. Report sizeable metadata separately.
+Do not propose recursive run-directory deletion to save its weights.
 
 Assess recovery before recommending removal. Use the reproduction checklist in
 the reference. **A preserved config sufficient to rerun the experiment is the
@@ -108,14 +139,22 @@ state expected differences and missing historical code without claiming identica
 weights. Never mark exactness without an existing repeatability comparison and
 all required inputs. Retraining is not restoring the old checkpoint, and deleting
 a full checkpoint loses its exact optimizer/RNG/continuation state unless retained
-elsewhere. Missing or insufficient configs, unavailable data/pretrained inputs,
-and unresolved deployment/active-job dependencies remain holds unless the user
-explicitly accepts the specific loss or resolves the dependency.
+elsewhere. Missing or insufficient configs require a bounded attempt to preserve
+available effective settings. If that fails, disclose the loss of reproducibility
+and request explicit acceptance for those items. Missing historical data or
+initialization affects recovery fidelity; it is not a reason to preserve an
+otherwise unused checkpoint indefinitely. It may remain a removal candidate with
+that limitation prominently disclosed for approval. Only unresolved live
+consumption, identity/scope, current pin or necessary recipe questions warrant
+specific holds; do not turn a reproduction audit into a blanket retention rule.
 
 Produce an immutable versioned Markdown proposal plus machine-readable manifest
-using the reference contract. Include a conservative recommended set, optional
-higher-risk sets, bytes by storage location, protected artifacts, unresolved
-questions and exact actions. List retained reproduction evidence and remaining
+using the reference contract. Lead with the proposed keep set and its reasons,
+then the recommended removal set covering the remaining eligible checkpoints.
+Show total storage before and after, split into kept weights, held weights and
+preserved metadata. Explain any large remainder: a proposal that retains most
+checkpoint storage requires concrete current reasons, not generic caution.
+Include material recovery limitations, unresolved questions and exact actions. List retained reproduction evidence and remaining
 recovery costs/limitations per run. When asking for approval, point to the
 proposal ID and exact candidate IDs, and explain that this skill requires
 explicit user approval before changing any artifacts. End the audit with

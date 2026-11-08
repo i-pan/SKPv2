@@ -21,8 +21,10 @@ do not synthesize an exact config from the current defaults.
 - Results with metric definitions, cohort/target order, checkpoint epoch/step and
   raw/EMA identity. Include failures and dispositions. Saved OOF predictions and
   evaluation scripts support later comparisons without retraining when affordable.
-- Deployment/resume/ensemble/rollback consumers and the evidence establishing
-  that a candidate is no longer required.
+- Current deployment/active-work consumers and a concrete reason for each keep.
+  Historical references and former selection are context, not live dependencies.
+  Checkpoints outside the justified keep/hold set do not need an individual
+  historical rejection to become removal candidates.
 - Preserve the actual config bytes and effective settings (including inherited
   defaults and CLI/wrapper overrides). Record which recipe inputs are verified;
   do not substitute current defaults silently. A matching registered config hash
@@ -46,6 +48,16 @@ inventory scope, storage roots/backends and the deployment-plan evidence used.
 Summarize covered versus uninspected experiments and why. Separate evidence from
 recommendations and from approvals (initially none).
 
+Lead with a short **keep list**: current final-model members and dependencies,
+explicit continuation/rollback needs, and a few justified reference models.
+Separate checkpoint retention from retaining the experiment's metadata. Describe
+why each chosen weight variant is needed and which duplicates/states are not.
+
+Then show current storage and proposed remaining storage, broken down into kept
+weights, held weights and metadata. Explain every substantial retained category.
+The main removal proposal should cover all eligible checkpoints outside the keep
+set, not merely duplicates or formally rejected experiments.
+
 Use a table with one artifact/action per row:
 
 | ID | Run/fold | Exact path/object version | Role | Allocated/logical bytes | Decision | Evidence/rationale | Recovery | Consumers |
@@ -54,8 +66,9 @@ Use a table with one artifact/action per row:
 Include all keep/hold items in the manifest even if the human table summarizes
 large groups. Show estimated reclaimable bytes by filesystem/backend and action
 set, account for shared links/replicas, and state unknown reclamation. Rank
-candidates by storage saved versus recovery cost and scientific/deployment value;
-no automatic score cutoff. For each run link the reproduction record and retained
+candidates by storage savings and practical consequences, with no automatic score
+cutoff. Assume exploratory runs are unlikely to be rerun. Scientific history is
+usually preserved through metadata, not a checkpoint for every experiment. For each run link the reproduction record and retained
 metadata. Explain higher-risk alternatives separately, such as keeping inference
 weights but sacrificing resumability; such transformations also require approval.
 
@@ -79,7 +92,11 @@ This is a field contract, not a requirement to introduce a new registry framewor
   "deployment_evidence": [],
   "experiments": [],
   "artifacts": [],
+  "keep_action_ids": [],
+  "hold_questions": [],
   "recommended_action_ids": [],
+  "storage_before_bytes": null,
+  "storage_after_bytes": {"kept_weights": null, "held_weights": null, "metadata": null},
   "optional_action_sets": [],
   "estimated_reclaimable_bytes_by_location": {},
   "reclamation_limits": [],
@@ -93,7 +110,11 @@ Each artifact includes unique action ID, experiment ID, exact path/URI and remot
 version when available, root/backend, role, logical/allocated bytes, observed
 mtime, local device/inode/link count or remote version identity, checksum if known,
 aliases/duplicate group, keep/hold/propose-remove decision, action, evidence,
-consumers, and reason. Use null for unknown bytes/hashes, not zero or fabricated
+consumers, and reason. Each keep must name its current purpose; each hold must
+name the unresolved question and resolution condition. Removal rationale may be
+"outside the current final/reference keep set"; individual inferiority is not
+required. Distinguish reproducibility limitations that need explicit acceptance
+from actual live dependencies that block removal. Use null for unknown bytes/hashes, not zero or fabricated
 checksums. Do not count duplicate aliases as independently reclaimable.
 
 Hash the final manifest and show the hash with the approval request. Record later

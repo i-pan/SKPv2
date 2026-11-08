@@ -8,6 +8,19 @@ SKPv2 must keep their modeling, dataset, evaluation, and release decisions in
 `docs/EXPERIMENT_HISTORY.md`. Those project documents are intentionally
 separate from this file.
 
+## 2026-11-08: Keep-set-first experiment cleanup
+
+- Checkpoint retention requires a current purpose: final deployment, concrete
+  active/committed work, explicit rollback, or a few justified reference models.
+  Historical selected/exported/pending labels and old preservation records are
+  not permanent exemptions. Most exploratory runs are unlikely to be rerun.
+- Propose removing eligible weights outside the minimal keep set while preserving
+  configs/results/history. Holds must name a specific unresolved dependency or
+  question; incomplete recovery is disclosed rather than automatically retaining
+  unused weights forever. Show remaining storage and explain large retained groups.
+- This revises proposal selection only. Exact, versioned user approval remains
+  mandatory before any cleanup; no artifact deletion is authorized by this change.
+
 ## 2026-11-08: Experiment cleanup proposals
 
 - Add a reusable experiment-cleanup skill that prioritizes checkpoint storage,
