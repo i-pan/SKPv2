@@ -5,6 +5,7 @@ from skp.environment import configure_gcp_gpu_environment, load_project_dotenv
 
 def test_load_project_dotenv_does_not_override_exported_values(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SKP_PROJECT_ROOT", str(tmp_path))
     (tmp_path / ".env").write_text("TEST_DOTENV=from_file\n")
     monkeypatch.setenv("TEST_DOTENV", "exported")
 

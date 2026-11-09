@@ -2,6 +2,7 @@ import albumentations as A
 import cv2
 
 from skp.configs import Config
+from skp.paths import project_path
 from skp.configs.defaults import cls_seg_2d_defaults, dataloader_defaults, runtime_defaults
 
 
@@ -34,9 +35,9 @@ cfg.backbone_img_size = False
 cfg.fold = 0
 cfg.split_column = "fold"
 cfg.dataset = "simple2d_seg_cls"
-cfg.data_dir = "./data/images"
-cfg.seg_data_dir = "./data/masks"
-cfg.annotations_file = "./data/train.csv"
+cfg.data_dir = str(project_path("SKP_DATA_DIR", "images"))
+cfg.seg_data_dir = str(project_path("SKP_DATA_DIR", "masks"))
+cfg.annotations_file = str(project_path("SKP_DATA_DIR", "train.csv"))
 cfg.inputs = "image"
 cfg.masks = "mask"
 cfg.targets = ["target"]

@@ -3079,6 +3079,9 @@ wheels = [
 name = "skp"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "python-dotenv" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -3101,7 +3104,6 @@ train = [
     { name = "pandas" },
     { name = "petname" },
     { name = "psutil" },
-    { name = "python-dotenv" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "timm" },
@@ -3117,6 +3119,7 @@ wds = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "python-dotenv", specifier = ">=1.0" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3139,7 +3142,6 @@ train = [
     { name = "pandas", specifier = ">=2.2" },
     { name = "petname", specifier = ">=2.9" },
     { name = "psutil", specifier = ">=6.0" },
-    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "scipy", specifier = ">=1.12" },
     { name = "timm", specifier = ">=1.0" },

@@ -1,4 +1,5 @@
 from skp.configs import Config
+from skp.paths import project_path
 
 
 CONFIG_FIELD_DOCS = {
@@ -98,7 +99,7 @@ CONFIG_FIELD_DOCS = {
 
 def runtime_defaults(cfg: Config) -> Config:
     """Apply project/runtime defaults shared by all experiment templates."""
-    cfg.save_dir = "./experiments"
+    cfg.save_dir = str(project_path("SKP_EXPERIMENTS_DIR"))
     cfg.mlflow_tracking_uri = None
     cfg.debug = False
     cfg.seed = None

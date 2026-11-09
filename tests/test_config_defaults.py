@@ -1,6 +1,7 @@
 import pytest
 
 from skp.configs import Config
+from skp.paths import project_path
 from skp.configs.defaults import (
     CONFIG_FIELD_DOCS,
     classification_2d_defaults,
@@ -33,7 +34,7 @@ def test_default_groups_define_documented_core_values():
     dataloader_defaults(cfg)
     classification_2d_defaults(cfg)
 
-    assert cfg.save_dir == "./experiments"
+    assert cfg.save_dir == str(project_path("SKP_EXPERIMENTS_DIR"))
     assert cfg.get("project") is None
     assert cfg.persistent_workers is True
     assert cfg.mixup is None

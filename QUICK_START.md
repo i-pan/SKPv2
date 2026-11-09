@@ -19,6 +19,7 @@ From the repository root:
 
 ```bash
 uv sync --group train --group dev
+# On first setup only, copy .env.example to .env and edit storage/tracking settings.
 ```
 
 For this quick start you do not need the optional `medical`, `video`, or `wds`
@@ -27,16 +28,17 @@ groups.
 ## 2. Download ImageWoof-160
 
 ```bash
-mkdir -p data
+SKP_DATA_DIR="$(uv run python -c 'from skp.paths import project_path; print(project_path("SKP_DATA_DIR"))')"
+mkdir -p "$SKP_DATA_DIR"
 curl -L https://s3.amazonaws.com/fast-ai-imageclas/imagewoof2-160.tgz \
-  -o data/imagewoof2-160.tgz
-tar -xzf data/imagewoof2-160.tgz -C data
+  -o "$SKP_DATA_DIR/imagewoof2-160.tgz"
+tar -xzf "$SKP_DATA_DIR/imagewoof2-160.tgz" -C "$SKP_DATA_DIR"
 ```
 
 After extraction, the important folders should look like:
 
 ```text
-data/imagewoof2-160/
+${SKP_DATA_DIR}/imagewoof2-160/
   train/
     n02086240/
     n02087394/
@@ -62,11 +64,11 @@ Here we set:
 
 ```bash
 uv run python - <<'PY'
-from pathlib import Path
+from skp.paths import project_path
 import json
 import pandas as pd
 
-root = Path("data/imagewoof2-160")
+root = project_path("SKP_DATA_DIR", "imagewoof2-160")
 class_dirs = sorted((root / "train").iterdir())
 class_to_idx = {path.name: idx for idx, path in enumerate(class_dirs)}
 
@@ -108,6 +110,7 @@ import albumentations as A
 import cv2
 
 from skp.configs import Config
+from skp.paths import project_path
 from skp.configs.defaults import (
     classification_2d_defaults,
     dataloader_defaults,
@@ -138,8 +141,8 @@ cfg.backbone_img_size = False
 cfg.fold = 0
 cfg.split_column = "fold"
 cfg.dataset = "simple2d"
-cfg.data_dir = "./data/imagewoof2-160"
-cfg.annotations_file = "./data/imagewoof2-160/annotations.csv"
+cfg.data_dir = str(project_path("SKP_DATA_DIR", "imagewoof2-160"))
+cfg.annotations_file = str(project_path("SKP_DATA_DIR", "imagewoof2-160/annotations.csv"))
 cfg.inputs = "image"
 cfg.targets = ["target"]
 cfg.cv2_load_flag = cv2.IMREAD_COLOR
@@ -238,7 +241,7 @@ If `--devices` is omitted for CUDA training, SKPv2 uses all visible GPUs.
 Outputs are written under:
 
 ```text
-experiments/imagewoof_quickstart/<run_id>/fold0/
+${SKP_EXPERIMENTS_DIR}/imagewoof_quickstart/<run_id>/fold0/
 ```
 
 That folder contains checkpoints, MLflow artifacts, the serialized final config,
@@ -291,7 +294,7 @@ This toy project exercises the intended SKPv2 workflow:
 2. Add a project-specific config.
 3. Convert the dataset into a simple annotations table.
 4. Use a reusable dataset/task/model/loss/metric path.
-5. Keep experiment outputs under `experiments/`.
+5. Keep experiment outputs under `SKP_EXPERIMENTS_DIR`.
 6. Track runs in `docs/EXPERIMENT_HISTORY.md` and detailed project reasoning in
    `docs/DECISION_LOG.md`.
 7. Promote reusable fixes back into the SKPv2 template when you discover them,

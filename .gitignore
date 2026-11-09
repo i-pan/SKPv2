@@ -29,3 +29,7 @@ data/
 *.onnx
 
 .DS_Store
+
+artifacts/
+.cache/
+.state/

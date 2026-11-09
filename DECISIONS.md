@@ -265,3 +265,19 @@ separate from this file.
   installation, inference, ensemble choices, outputs, performance and limitations.
   Move detailed training/fine-tuning/provenance later with an accessible section
   link. Retain training completeness and the existing proposal/approval gate.
+
+## 2026-11-09: Environment-defined storage roots
+
+- Centralize portable directory defaults and project-root-relative resolution in
+  `skp.paths`. Load only the selected project's `.env`, preserving exported
+  overrides, including when configs are imported directly rather than via train.
+- Configure data, experiments, artifacts, project caches, and queue state in
+  `.env`/`.env.example`; update starter configs, quick start, and agent guidance.
+  Explicit per-config/per-command overrides remain supported. Existing storage is
+  not moved, and old host queues require an explicit existing-root setting.
+- Make python-dotenv a core dependency so queue and config helpers work without
+  the training dependency group. Installed wheels require an exported project
+  root; source checkouts resolve independently of the caller's working directory.
+- Keep server-owned MLflow artifacts, third-party cache settings, and disposable
+  dry-run directories distinct from project storage. The artifact/cache helpers
+  provide conventions for future project code rather than intercepting writes.

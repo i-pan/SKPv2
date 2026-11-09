@@ -4,12 +4,7 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
-
-
-def load_project_dotenv() -> None:
-    """Load local environment variables without overriding exported values."""
-    load_dotenv(override=False)
+from skp.paths import load_project_dotenv  # noqa: F401 — public compatibility import
 
 
 def configure_gcp_gpu_environment() -> None:

@@ -24,7 +24,7 @@ missing or unreachable. Local tracking requires explicit per-launch
 authorization with `--allow_local_mlflow`.
 
 Copy one of the starter configs from `src/skp/configs/templates/` into
-`src/skp/configs/`, edit the data paths and experiment settings, then run:
+`src/skp/configs/`, set directory variables in `.env` and edit experiment settings, then run:
 
 ```bash
 uv run skp-train my_config --accelerator cuda
@@ -138,6 +138,52 @@ Use `--pid <training-launcher-pid>` when training lives outside the controller's
 process tree. Without `--fast`, the helper includes process-tree PSS and GPU
 process attribution. The skill reads project-specific metrics and paths from
 existing records rather than imposing a particular dataset or primary metric.
+
+## Directory configuration
+
+Copy `.env.example` to `.env` once and set storage locations there. Keep machine
+paths out of tracked configs, scripts, and documentation. Exported variables
+win over `.env`; unset directory variables use the portable defaults below.
+Absolute values may point anywhere outside the repository, including separate
+data and checkpoint disks. Relative values resolve against the source checkout root, even when invoked from
+another working directory. Loading settings creates no directories.
+
+| Variable | Default | Contents |
+|---|---|---|
+| `SKP_DATA_DIR` | `data` | Downloads, annotations, processed datasets |
+| `SKP_EXPERIMENTS_DIR` | `experiments` | Runs, checkpoints, predictions, training logs |
+| `SKP_ARTIFACTS_DIR` | `artifacts` | Reports, submissions, packaged model releases |
+| `SKP_CACHE_DIR` | `.cache` | Project preprocessing caches |
+| `SKP_QUEUE_DIR` | `.state/queue` | Queue database, attempt logs and state |
+
+Use the shared resolver in configs, preprocessing, notebooks, and release scripts:
+
+```python
+from skp.paths import project_path
+
+images = project_path("SKP_DATA_DIR", "images")
+report = project_path("SKP_ARTIFACTS_DIR", "reports", "scores.csv")
+```
+
+The helper returns an absolute `Path`; use `str(...)` for config fields that
+expect strings. Dataset-relative filenames and run/config/fold subdirectories
+remain explicit in code. Add project-specific roots to both `.env` and
+`.env.example` when needed. Artifact/cache roots are conventions for project
+scripts; they do not redirect third-party caches such as Hugging Face or PyTorch.
+Configure those libraries' own environment variables separately when needed.
+
+With an installed wheel outside the source checkout, export an absolute
+`SKP_PROJECT_ROOT` before invocation. This selects the project's `.env` and anchors
+relative paths; do not put `SKP_PROJECT_ROOT` inside `.env` itself.
+Python dotenv loading does not export variables into your shell. Shell examples
+should resolve paths with `project_path` (as in `QUICK_START.md`) and quote them.
+
+Existing custom `cfg.save_dir` overrides and queue `--root` remain explicit
+escape hatches. New configs should derive those overrides from environment roots.
+Dry-run diagnostics still use disposable system temporary storage. MLflow server
+artifact storage is controlled by the server, independently of client run paths.
+Existing files are not moved. To reuse an old queue, set `SKP_QUEUE_DIR` to its
+existing location; all clients of a host scheduler must use the same directory.
 
 ## Environment Strategy
 
@@ -440,7 +486,7 @@ cp .env.example .env
 By default, local outputs are written under:
 
 ```text
-experiments/<config_name>/<run_id>/fold<fold>/
+${SKP_EXPERIMENTS_DIR}/<config_name>/<run_id>/fold<fold>/
 ```
 
 Run IDs use the human-readable `petname` format `<word>-<word>-<4digit_int>`,
@@ -449,7 +495,7 @@ for example `silver-lake-0427`. MLflow run names use
 Fixed-split runs without `cfg.fold` use:
 
 ```text
-experiments/<config_name>/<run_id>/fixed_split/
+${SKP_EXPERIMENTS_DIR}/<config_name>/<run_id>/fixed_split/
 ```
 
 Checkpoints are saved under `checkpoints/`, with `best.ckpt` symlinked to the

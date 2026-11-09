@@ -109,6 +109,27 @@ training. On this workstation the standard server endpoint in `.env.example` is
 running and is therefore treated as local. Do not expose MLflow credentials in
 logs or documentation.
 
+## Directory contract
+
+- Define machine-specific storage roots in `.env` and document every variable in
+  `.env.example`. Never embed workstation paths in tracked code or documentation.
+- Absolute roots outside the repository are supported and encouraged when data
+  or checkpoints need a different storage volume. Do not require storage to be
+  inside the project checkout.
+- Use `skp.paths.project_path` in configs and scripts. Standard roots are
+  `SKP_DATA_DIR`, `SKP_EXPERIMENTS_DIR`, `SKP_ARTIFACTS_DIR`, `SKP_CACHE_DIR`, and
+  `SKP_QUEUE_DIR`. Add project-specific roots to both environment files if needed.
+- Keep data-derived files under the data root, run outputs under the experiment
+  root, and reports/submissions/model packages under the artifact root. Keep
+  filenames and relative dataset/run layout in code. Do not invent output roots.
+- Resolve and report destinations before expensive work. Relative environment
+  paths are project-root-relative, never working-directory-relative. Shell
+  commands must resolve and quote paths; Python dotenv does not populate shells.
+- Use one shared local queue root for all clients of a host scheduler. Never
+  relocate existing data, runs, or queue state implicitly when changing settings.
+- Temporary diagnostics may use system temporary storage. Configure third-party
+  caches and MLflow server storage explicitly with their own supported settings.
+
 ## Building experiments
 
 - Copy and specialize the nearest config/template instead of introducing deep

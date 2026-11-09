@@ -2,6 +2,7 @@ import albumentations as A
 import cv2
 
 from skp.configs import Config
+from skp.paths import project_path
 from skp.configs.defaults import (
     classification_2d_defaults,
     dataloader_defaults,
@@ -35,8 +36,8 @@ cfg.backbone_img_size = False
 cfg.fold = 0
 cfg.split_column = "fold"
 cfg.dataset = "simple2d"
-cfg.data_dir = "./data/images"
-cfg.annotations_file = "./data/train.csv"
+cfg.data_dir = str(project_path("SKP_DATA_DIR", "images"))
+cfg.annotations_file = str(project_path("SKP_DATA_DIR", "train.csv"))
 cfg.inputs = "image"
 cfg.targets = ["target"]
 cfg.cv2_load_flag = cv2.IMREAD_COLOR
