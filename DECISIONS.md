@@ -265,3 +265,16 @@ separate from this file.
   installation, inference, ensemble choices, outputs, performance and limitations.
   Move detailed training/fine-tuning/provenance later with an accessible section
   link. Retain training completeness and the existing proposal/approval gate.
+
+## 2026-11-14: Reusable downstream spatial/auxiliary components
+
+Port ten generic improvements identified in the ICH template review: shared
+segmentation normalization; opt-in frozen-encoder eval and explicit checkpoint
+precedence; independent validation loader resources; cycling group/bin sampling;
+teacher/ancestor group isolation; checkpoint-bound prediction export integrity;
+spatial-logit pooling; a shared-encoder auxiliary decoder; weighted soft-mask BCE;
+and positive-only Dice. Preserve existing defaults and keep clinical labels,
+HU/teacher ROI policy, architecture stride surgery and dataset split membership
+downstream. Full model initialization remains last by default. The new auxiliary
+wrapper is additive and does not claim checkpoint-key compatibility with ICH.
+See [the component contracts and usage](docs/REUSABLE_SPATIAL_AUXILIARY.md).

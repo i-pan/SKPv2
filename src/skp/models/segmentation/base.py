@@ -15,6 +15,7 @@ from torch.utils.checkpoint import checkpoint
 from typing import Dict, List, Union
 
 from skp.configs import Config
+from skp.models.normalization import normalize_input
 from skp.models.segmentation import decoders
 from skp.models.utils import torch_load_weights, filter_weights_by_prefix
 
@@ -116,14 +117,7 @@ class Net(nn.Module):
                 if hasattr(module, "inplace"):
                     module.inplace = False
 
-        if self.cfg.get("load_pretrained_encoder"):
-            self.load_pretrained_encoder()
-
-        if self.cfg.get("load_pretrained_decoder"):
-            self.load_pretrained_decoder()
-
-        if self.cfg.get("load_pretrained_model"):
-            self.load_pretrained_model()
+        self.load_initial_weights()
 
         if self.cfg.get("freeze_encoder", False):
             print("Freezing encoder ...")
@@ -175,49 +169,40 @@ class Net(nn.Module):
         return out
 
     def normalize(self, x):
-        if self.cfg.normalization == "-1_1":
-            mini, maxi = (
-                self.cfg.normalization_params["min"],
-                self.cfg.normalization_params["max"],
+        return normalize_input(x, self.cfg)
+
+    def train(self, mode=True):
+        super().train(mode)
+        if self.cfg.get("freeze_encoder", False) and self.cfg.get(
+            "frozen_encoder_eval", False
+        ):
+            self.encoder.eval()
+        return self
+
+    def load_initial_weights(self):
+        """Legacy full-model priority unless explicit components-last is selected."""
+        order = self.cfg.get("pretrained_load_order", "model_last")
+        if order not in {"model_last", "components_last"}:
+            raise ValueError(
+                "pretrained_load_order must be model_last or components_last"
             )
-            x = x - mini
-            x = x / (maxi - mini)
-            x = x - 0.5
-            x = x * 2.0
-        elif self.cfg.normalization == "0_1":
-            mini, maxi = (
-                self.cfg.normalization_params["min"],
-                self.cfg.normalization_params["max"],
-            )
-            x = x - mini
-            x = x / (maxi - mini)
-        elif self.cfg.normalization == "mean_sd":
-            mean, sd = (
-                self.cfg.normalization_params["mean"],
-                self.cfg.normalization_params["sd"],
-            )
-            x = (x - mean) / sd
-        elif self.cfg.normalization == "per_channel_mean_sd":
-            mean, sd = (
-                self.cfg.normalization_params["mean"],
-                self.cfg.normalization_params["sd"],
-            )
-            assert len(mean) == len(sd) == x.size(1)
-            shape = (1, x.size(1), *([1] * (x.ndim - 2)))
-            mean = x.new_tensor(mean).view(shape)
-            sd = x.new_tensor(sd).view(shape)
-            x = (x - mean) / sd
-        return x
+        names = ["encoder", "decoder", "model"]
+        if order == "components_last":
+            names = ["model", "encoder", "decoder"]
+        for name in names:
+            if self.cfg.get(f"load_pretrained_{name}"):
+                getattr(self, f"load_pretrained_{name}")()
 
     def load_pretrained_encoder(self) -> None:
         print(f"Loading pretrained encoder from {self.cfg.load_pretrained_encoder} ...")
         weights = torch_load_weights(self.cfg.load_pretrained_encoder)
         weights = filter_weights_by_prefix(weights, "model.")
         # Get backbone only
-        weights = filter_weights_by_prefix(weights, "backbone.")
-        if len(weights) == 0:
+        component_weights = filter_weights_by_prefix(weights, "backbone.")
+        if len(component_weights) == 0:
             # If no backbone weights, check to see if encoder weights exist
-            weights = filter_weights_by_prefix(weights, "encoder.")
+            component_weights = filter_weights_by_prefix(weights, "encoder.")
+        weights = component_weights
         # seems weight names are not necessarily the same if features_only=True ...
         # for maxvit
         if self.cfg.backbone.startswith("maxvit_"):
@@ -314,6 +299,8 @@ class Net(nn.Module):
     def freeze_encoder(self) -> None:
         for param in self.encoder.parameters():
             param.requires_grad = False
+        if self.cfg.get("frozen_encoder_eval", False):
+            self.encoder.eval()
 
     def set_criterion(self, loss: nn.Module) -> None:
         self.criterion = loss

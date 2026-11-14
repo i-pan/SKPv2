@@ -10,6 +10,7 @@ import torch
 from lightning.pytorch.callbacks import Callback
 
 from skp.callbacks.ema_callback import EMACallback
+from skp.provenance import sha256
 
 
 def write_predictions(path, ids, predictions, targets, expected_ids, metadata):
@@ -37,9 +38,39 @@ def write_predictions(path, ids, predictions, targets, expected_ids, metadata):
                 metadata=json.dumps(metadata, sort_keys=True),
             )
         os.replace(temporary, path)
+        manifest = dict(
+            archive_sha256=sha256(path),
+            checkpoint_sha256=metadata.get("checkpoint_sha256"),
+        )
+        descriptor, sidecar_temp = tempfile.mkstemp(dir=path.parent, suffix=".json")
+        try:
+            with os.fdopen(descriptor, "w") as stream:
+                json.dump(manifest, stream, sort_keys=True)
+            os.replace(sidecar_temp, path.with_suffix(path.suffix + ".json"))
+        finally:
+            if os.path.exists(sidecar_temp):
+                os.unlink(sidecar_temp)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def verify_prediction_export(path, checkpoint_path=None):
+    """Fail closed for incomplete/corrupt exports; optionally bind to current weights."""
+    path = Path(path)
+    manifest = json.loads(path.with_suffix(path.suffix + ".json").read_text())
+    if sha256(path) != manifest["archive_sha256"]:
+        raise ValueError("Prediction archive hash mismatch")
+    with np.load(path, allow_pickle=False) as archive:
+        metadata = json.loads(str(archive["metadata"]))
+    if metadata.get("checkpoint_sha256") != manifest["checkpoint_sha256"]:
+        raise ValueError("Prediction checkpoint metadata mismatch")
+    if (
+        checkpoint_path is not None
+        and sha256(checkpoint_path) != manifest["checkpoint_sha256"]
+    ):
+        raise ValueError("Prediction checkpoint hash mismatch")
+    return metadata
 
 
 class PredictionExport(Callback):
@@ -110,6 +141,12 @@ class PredictionExport(Callback):
                     if self.checkpoint_context is not None
                     else f"epoch{trainer.current_epoch}-step{trainer.global_step}.npz"
                 )
+                if self.checkpoint_context is not None:
+                    if (
+                        sha256(self.checkpoint_context["checkpoint"])
+                        != self.checkpoint_context["checkpoint_sha256"]
+                    ):
+                        raise ValueError("Checkpoint changed during prediction export")
                 write_predictions(
                     self.directory / filename,
                     ids,
@@ -164,12 +201,14 @@ def export_checkpoint_predictions(trainer):
         trainer.loggers = []
         for role, path in [("best", best), ("final", latest)]:
             path = Path(path).resolve(strict=True)
+            checkpoint_hash = sha256(path)
             checkpoint = torch.load(
                 path, map_location="cpu", mmap=True, weights_only=False
             )
             exporter.checkpoint_context = dict(
                 checkpoint_role=role,
                 checkpoint=str(path),
+                checkpoint_sha256=checkpoint_hash,
                 epoch=int(checkpoint["epoch"]),
                 completed_epochs=int(checkpoint["epoch"]) + 1,
                 step=int(checkpoint["global_step"]),

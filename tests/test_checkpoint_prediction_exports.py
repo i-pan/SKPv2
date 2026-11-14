@@ -10,6 +10,7 @@ from skp.callbacks.final_checkpoint import FinalCheckpointCallback
 from skp.callbacks.prediction_export import (
     PredictionExport,
     export_checkpoint_predictions,
+    verify_prediction_export,
 )
 from skp.configs import Config
 
@@ -87,6 +88,13 @@ def test_best_and_unvalidated_final_are_exported(tmp_path, devices):
             tmp_path / "predictions" / f"validation_predictions_{role}.npz"
         ) as a:
             meta = json.loads(str(a["metadata"]))
+            assert (
+                verify_prediction_export(
+                    tmp_path / "predictions" / f"validation_predictions_{role}.npz",
+                    meta["checkpoint"],
+                )
+                == meta
+            )
             assert meta["epoch"] == epoch
             assert meta["checkpoint_role"] == role
             assert a["sample_ids"].tolist() == Samples.sample_ids

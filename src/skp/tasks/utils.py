@@ -27,57 +27,54 @@ def _is_ddp(cfg: Config) -> bool:
     return strategy == "ddp" or str(strategy).startswith("ddp")
 
 
+def loader_resources(cfg, mode, webdataset=False):
+    """None inherits; zero workers disables multiprocessing-only settings."""
+
+    def setting(name, default):
+        value = cfg.get(name)
+        value = default if value is None else value
+        override = cfg.get("val_" + name) if mode != "train" else None
+        return value if override is None else override
+
+    workers = setting("num_workers", 0)
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 0:
+        raise ValueError("num_workers must be a nonnegative integer")
+    result = {"num_workers": workers}
+    if workers:
+        result["persistent_workers"] = bool(setting("persistent_workers", False))
+        prefetch = setting("prefetch_factor", 4 if webdataset else 2)
+        if isinstance(prefetch, bool) or not isinstance(prefetch, int) or prefetch < 1:
+            raise ValueError("prefetch_factor must be a positive integer")
+        result["prefetch_factor"] = prefetch
+    return result
+
+
 def build_dataloader(cfg: Config, dataset: Dataset, mode: str) -> DataLoader:
+    resources = loader_resources(cfg, mode, webdataset=cfg.get("wds", False))
     if cfg.get("wds", False):
         wds = _require_webdataset()
-        num_workers = cfg.get("num_workers", 0) or 0
-        persistent_workers = (cfg.get("persistent_workers", False) or False) and (
-            num_workers > 0
+        loader = wds.WebLoader(
+            dataset,
+            batch_size=None,
+            pin_memory=cfg.get("pin_memory", True) or False,
+            **resources,
         )
         if mode == "train":
-            loader_params = {
-                "batch_size": None,
-                "num_workers": num_workers,
-                "pin_memory": cfg.get("pin_memory", True) or False,
-                "persistent_workers": persistent_workers,
-            }
-            if num_workers > 0:
-                loader_params["prefetch_factor"] = 4
-            loader = wds.WebLoader(dataset, **loader_params).with_epoch(
-                cfg.num_iterations_per_epoch
-            )
-        else:
-            val_num_workers = cfg.get("val_num_workers") or num_workers
-            if cfg.get("num_val_batches_per_gpu") is not None:
-                loader = wds.WebLoader(
-                    dataset,
-                    batch_size=None,
-                    num_workers=val_num_workers,
-                ).with_epoch(cfg.num_val_batches_per_gpu)
-            else:
-                loader = wds.WebLoader(
-                    dataset,
-                    batch_size=None,
-                    num_workers=val_num_workers,
-                )
+            return loader.with_epoch(cfg.num_iterations_per_epoch)
+        if cfg.get("num_val_batches_per_gpu") is not None:
+            return loader.with_epoch(cfg.num_val_batches_per_gpu)
         return loader
 
     def worker_init_fn(worker_id: int) -> None:
         np.random.seed(torch.initial_seed() % 2**32)
 
-    dataloader_params = {}
-    dataloader_params["num_workers"] = cfg.num_workers
+    dataloader_params = dict(resources)
     dataloader_params["drop_last"] = mode == "train" and cfg.get(
         "train_drop_last", True
     )
     dataloader_params["shuffle"] = mode == "train"
     dataloader_params["pin_memory"] = cfg.get("pin_memory", False) or False
     dataloader_params["collate_fn"] = dataset.collate_fn
-    if cfg.num_workers > 0:
-        dataloader_params["persistent_workers"] = (
-            cfg.get("persistent_workers", False) or False
-        )
-
     if mode == "train":
         dataloader_params["batch_size"] = cfg.batch_size
     else:

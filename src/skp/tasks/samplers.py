@@ -275,3 +275,69 @@ class GroupBalancedSampler(Sampler):
             )
         rng.shuffle(indices)
         return iter(indices)
+
+
+class CyclingGroupBinSampler(Sampler):
+    """One row per group per epoch, independently cycling binary label bins.
+
+    Dataset exposes aligned ``group_ids`` (nonempty strings) and ``sampling_labels``
+    (binary values). Replaying epochs reconstructs bin state without checkpoints.
+    DistributedSamplerWrapper may pad the global plan when groups are indivisible;
+    use divisible group counts and train_drop_last=False for exact coverage.
+    """
+
+    def __init__(self, dataset, cfg):
+        groups, labels = list(dataset.group_ids), np.asarray(dataset.sampling_labels)
+        if len(groups) != len(dataset) or labels.shape != (len(dataset),):
+            raise ValueError(
+                "group_ids and sampling_labels must align with dataset rows"
+            )
+        if not groups or not np.isin(labels, [0, 1]).all():
+            raise ValueError("Require nonempty data and binary sampling_labels")
+        self.groups = {}
+        for index, (group, label) in enumerate(zip(groups, labels)):
+            if not isinstance(group, str) or not group.strip():
+                raise ValueError("group_ids must be nonempty strings")
+            self.groups.setdefault(group, [[], []])[int(label)].append(index)
+        self.probability = cfg.get("positive_sampling_probability", 0.5)
+        if not np.isfinite(self.probability) or not 0 <= self.probability <= 1:
+            raise ValueError("positive_sampling_probability must be in [0, 1]")
+        self.seed = cfg.get("resolved_seed")
+        if self.seed is None:
+            self.seed = cfg.get("seed", 0) or 0
+        self.epoch = 0
+        self._reset()
+
+    def _reset(self):
+        self._next_epoch = 0
+        self._remaining = {group: [[], []] for group in self.groups}
+        self._plan = None
+
+    def __len__(self):
+        return len(self.groups)
+
+    def set_epoch(self, epoch):
+        if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch < 0:
+            raise ValueError("epoch must be a nonnegative integer")
+        self.epoch = epoch
+
+    def __iter__(self):
+        if self.epoch < self._next_epoch - 1:
+            self._reset()
+        while self._next_epoch <= self.epoch:
+            rng = np.random.default_rng(
+                np.random.SeedSequence([self.seed, self._next_epoch])
+            )
+            plan = []
+            for group, bins in self.groups.items():
+                label = int(rng.random() < self.probability)
+                if not bins[label]:
+                    label = 1 - label
+                remaining = self._remaining[group][label]
+                if not remaining:
+                    remaining.extend(rng.permutation(bins[label]).tolist())
+                plan.append(remaining.pop())
+            rng.shuffle(plan)
+            self._plan = plan
+            self._next_epoch += 1
+        return iter(self._plan)

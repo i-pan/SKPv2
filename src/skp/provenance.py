@@ -231,3 +231,31 @@ def verify_prompt_results(registry):
         record = json.loads(line)
         verify(record["prompt"])
         verify(record["artifact"])
+
+
+def assert_group_isolation(protected_groups, source_groups):
+    """Reject overlap with any supplied teacher/ancestor training group set.
+
+    Call before fitting or producing pseudo-labels. Callers must supply the full
+    ancestry and stable group IDs, not item IDs. No dataset-specific inference or
+    automatic ancestry discovery is performed. Error messages contain counts only.
+    """
+
+    def checked(values):
+        if isinstance(values, (str, bytes)):
+            raise ValueError("Group IDs must be an iterable of nonempty strings")
+        values = list(values)
+        if any(not isinstance(v, str) or not v.strip() for v in values):
+            raise ValueError("Group IDs must be nonempty strings")
+        return set(values)
+
+    protected = checked(protected_groups)
+    counts = {}
+    for name, groups in source_groups.items():
+        overlap = protected & checked(groups)
+        counts[name] = len(overlap)
+    if any(counts.values()):
+        raise ValueError(
+            f"Protected group overlap across {sum(v > 0 for v in counts.values())} source(s)"
+        )
+    return counts

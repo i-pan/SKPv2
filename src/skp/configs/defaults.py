@@ -161,6 +161,9 @@ def dataloader_defaults(cfg: Config) -> Config:
     cfg.inference_transforms = None
     cfg.wds = False
     cfg.val_num_workers = None
+    cfg.val_persistent_workers = None
+    cfg.prefetch_factor = None
+    cfg.val_prefetch_factor = None
     cfg.num_val_batches_per_gpu = None
     cfg.sampler = None
     cfg.num_iterations_per_epoch = None
