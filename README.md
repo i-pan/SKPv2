@@ -557,3 +557,16 @@ weights and disable tracker logging during re-evaluation to preserve training hi
 Export failure prevents the run from being reported as successfully exported; missing
 checkpoints are errors. The feature remains opt-in for tasks/datasets satisfying the
 existing prediction-export contract.
+
+## Default weight averaging
+
+Standard EMA is enabled by default (decay 0.99, linear warmup over 500 updates).
+Switch-EMA is off by default. Keep these settings unless an experiment explicitly
+requests otherwise; project configs should inherit the shared defaults.
+
+EMA-enabled checkpoints preserve both variants: `state_dict` contains the EMA
+weights used for scheduled validation and `raw_state_dict` contains the non-EMA
+weights. To compare them, load the desired state dictionary into a fresh model
+or task with matching architecture. Compare variants from the same final epoch;
+maintaining EMA does not automatically trigger a second validation pass. Existing
+runs trained without EMA cannot acquire historical EMA weights retrospectively.

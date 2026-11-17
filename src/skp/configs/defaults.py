@@ -131,6 +131,7 @@ def runtime_defaults(cfg: Config) -> Config:
     cfg.accumulate_grad_batches = 1
     cfg.progressive_resizing = None
     cfg.hyperparameter_sweep = None
+    # Preserve both EMA and raw checkpoint weights; Switch-EMA is opt-in.
     cfg.ema = {
         "on": True,
         "decay": 0.99,

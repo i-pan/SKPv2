@@ -36,6 +36,8 @@ def test_default_groups_define_documented_core_values():
     assert cfg.save_dir == "./experiments"
     assert cfg.get("project") is None
     assert cfg.persistent_workers is True
+    assert cfg.ema["on"] is True
+    assert cfg.ema["switch_ema"] is False
     assert cfg.mixup is None
     assert cfg.mil_pool_temperature == 1.0
     assert cfg.mil_pool_normalize is True

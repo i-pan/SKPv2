@@ -278,3 +278,18 @@ HU/teacher ROI policy, architecture stride surgery and dataset split membership
 downstream. Full model initialization remains last by default. The new auxiliary
 wrapper is additive and does not claim checkpoint-key compatibility with ICH.
 See [the component contracts and usage](docs/REUSABLE_SPATIAL_AUXILIARY.md).
+
+## 2026-11-17 — Preserve EMA-on / Switch-EMA-off across downstream projects
+
+Standard EMA remains enabled by default (decay 0.99, 500-update linear warmup),
+while Switch-EMA remains an explicit opt-in. Document the policy in AGENTS.md
+and README and assert both flags in configuration tests so downstream experiment
+configs do not silently disable averaging. Disabling EMA or enabling Switch-EMA
+requires an explicit experiment request.
+
+Checkpoints preserve EMA inference weights in state_dict and non-EMA weights in
+raw_state_dict for later comparisons at the same final epoch. Maintaining both
+variants does not require duplicate validation passes. Existing runs are unchanged.
+
+Verification: all 186 tests passed on the isolated origin/main-based change;
+focused lint and diff checks passed. Runtime EMA defaults were already correct.

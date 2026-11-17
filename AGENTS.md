@@ -122,6 +122,10 @@ logs or documentation.
   construction, checkpoint loading when relevant, and a short smoke run before
   launching a full queue.
 - Use BF16 where supported unless the experiment requires another precision.
+- Keep standard EMA enabled by default; disable it only when explicitly requested
+  for an experiment. Keep Switch-EMA off unless explicitly requested. Preserve
+  both EMA and raw weights so either can be evaluated from saved checkpoints.
+  Maintaining both variants does not require duplicate validation passes.
 - Run long jobs in persistent sessions, mirror console logs into each experiment
   directory, and monitor MLflow plus system/GPU metrics.
 - Never interpret sanity-check metrics from only a few batches as model
